@@ -53,6 +53,7 @@ export interface Database {
           category: ExerciseCategory;
           equipment_type: EquipmentType;
           log_type: LogType;
+          gif_url: string | null;
           is_custom: boolean;
           user_id: string | null;
           created_at: string;
@@ -64,6 +65,7 @@ export interface Database {
           category: ExerciseCategory;
           equipment_type?: EquipmentType;
           log_type?: LogType;
+          gif_url?: string | null;
           is_custom?: boolean;
           user_id?: string | null;
           created_at?: string;

@@ -12,6 +12,15 @@ const withPWA = withPWAInit({
   },
 });
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "static.exercisedb.dev",
+      },
+    ],
+  },
+};
 
 export default withPWA(nextConfig);

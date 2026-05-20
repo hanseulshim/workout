@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Exercise, MuscleGroup, ExerciseCategory, EquipmentType, LogType } from "@/types/database";
@@ -60,6 +61,8 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   const [newEquipment, setNewEquipment] = useState<EquipmentType>("other");
   const [newLogType, setNewLogType] = useState<LogType>("weight_reps");
   const [saving, setSaving] = useState(false);
+  const [gifDialogExercise, setGifDialogExercise] = useState<Exercise | null>(null);
+  const [newGifUrl, setNewGifUrl] = useState("");
 
   const filtered = exercises.filter((ex) => {
     const matchesSearch = ex.name.toLowerCase().includes(search.toLowerCase());
@@ -79,6 +82,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         category: newCategory,
         equipment_type: newEquipment,
         log_type: newLogType,
+        gif_url: newGifUrl.trim() || null,
         is_custom: true,
         user_id: userId,
       })
@@ -89,6 +93,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     } else {
       setExercises((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName("");
+      setNewGifUrl("");
       setAddOpen(false);
       toast.success(`${data.name} added!`);
     }
@@ -169,6 +174,15 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  value={newGifUrl}
+                  onChange={(e) => setNewGifUrl(e.target.value)}
+                  placeholder="https://… (GIF or image URL)"
+                  type="url"
+                />
+              </div>
               <Button type="submit" className="w-full" disabled={saving}>
                 {saving ? "Adding…" : "Add Exercise"}
               </Button>
@@ -208,16 +222,39 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             className={selectable ? "cursor-pointer hover:bg-muted/50 transition-colors active:bg-muted" : ""}
             onClick={() => onSelect?.(ex)}
           >
-            <CardContent className="flex items-center justify-between py-3">
-              <div>
-                <p className="font-medium text-sm">{ex.name}</p>
+            <CardContent className="flex items-center gap-3 py-3">
+              {/* GIF thumbnail — tap to preview */}
+              <button
+                type="button"
+                className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted flex items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (ex.gif_url) setGifDialogExercise(ex);
+                }}
+              >
+                {ex.gif_url ? (
+                  <Image
+                    src={ex.gif_url}
+                    alt={ex.name}
+                    width={40}
+                    height={40}
+                    unoptimized
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{ex.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {muscleLabel(ex.muscle_group)}
                   {" · "}
                   {EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                   {LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}
                 </Badge>
@@ -227,6 +264,31 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
           </Card>
         ))}
       </div>
+
+      {/* GIF preview dialog */}
+      <Dialog open={!!gifDialogExercise} onOpenChange={(open) => { if (!open) setGifDialogExercise(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{gifDialogExercise?.name}</DialogTitle>
+          </DialogHeader>
+          {gifDialogExercise?.gif_url && (
+            <div className="flex flex-col items-center gap-3">
+              <Image
+                src={gifDialogExercise.gif_url}
+                alt={gifDialogExercise.name}
+                width={320}
+                height={320}
+                unoptimized
+                className="rounded-lg object-contain w-full max-h-72"
+              />
+              <div className="text-sm text-muted-foreground text-center space-y-1">
+                <p>{muscleLabel(gifDialogExercise.muscle_group)} · {EQUIPMENT_TYPES.find(e => e.value === gifDialogExercise.equipment_type)?.label}</p>
+                <p>{LOG_TYPES.find(t => t.value === gifDialogExercise.log_type)?.label}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
