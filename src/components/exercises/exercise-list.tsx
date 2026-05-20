@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Search, Plus, Dumbbell, ArrowLeft, Info, Check, Pencil } from "lucide-react";
+import { Search, Plus, Dumbbell, ArrowLeft, Info, Check, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Exercise, MuscleGroup, EquipmentType, LogType } from "@/types/database";
@@ -70,6 +70,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   const [newLogType, setNewLogType] = useState<LogType>("weight_reps");
   const [newGifUrl, setNewGifUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -121,6 +122,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   function goBack() {
     setView("list");
     setDetailExercise(null);
+    setConfirmDelete(false);
   }
 
   function toggleSelect(ex: Exercise) {
@@ -269,7 +271,20 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     setSaving(false);
   }
 
-  // ── Detail view ──────────────────────────────────────────────────────────
+  async function handleDeleteExercise(ex: Exercise) {
+    setSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("exercises").delete().eq("id", ex.id);
+    if (error) {
+      toast.error("Failed to delete exercise");
+    } else {
+      setExercises((prev) => prev.filter((e) => e.id !== ex.id));
+      setConfirmDelete(false);
+      goBack();
+      toast.success(`${ex.name} deleted`);
+    }
+    setSaving(false);
+  }
   if (view === "detail" && detailExercise) {
     const ex = detailExercise;
     const isSelected = selectedIds.has(ex.id);
@@ -282,9 +297,25 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
           </Button>
           <span className="font-medium text-sm truncate flex-1">{ex.name}</span>
           {ex.is_custom && (
-            <Button variant="ghost" size="icon-sm" onClick={() => openEdit(ex)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <>
+              <Button variant="ghost" size="icon-sm" onClick={() => openEdit(ex)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+              {confirmDelete ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={saving}
+                  onClick={() => handleDeleteExercise(ex)}
+                >
+                  {saving ? "Deleting…" : "Confirm delete"}
+                </Button>
+              ) : (
+                <Button variant="ghost" size="icon-sm" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
+            </>
           )}
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
