@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Search, Plus, Dumbbell } from "lucide-react";
+import { Search, Plus, Dumbbell, ArrowLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Exercise, MuscleGroup, ExerciseCategory, EquipmentType, LogType } from "@/types/database";
@@ -43,6 +42,8 @@ const LOG_TYPES: { value: LogType; label: string; description: string }[] = [
 const muscleLabel = (m: MuscleGroup) =>
   m.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+type View = "list" | "add" | "detail";
+
 interface Props {
   exercises: Exercise[];
   userId: string;
@@ -54,21 +55,30 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   const [exercises, setExercises] = useState(initial);
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState<MuscleGroup | "all">("all");
-  const [addOpen, setAddOpen] = useState(false);
+
+  // Navigation state — single active view, no nested dialogs
+  const [view, setView] = useState<View>("list");
+  const [detailExercise, setDetailExercise] = useState<Exercise | null>(null);
+
+  // Add-exercise form state
   const [newName, setNewName] = useState("");
   const [newMuscle, setNewMuscle] = useState<MuscleGroup>("other");
   const [newCategory, setNewCategory] = useState<ExerciseCategory>("strength");
   const [newEquipment, setNewEquipment] = useState<EquipmentType>("other");
   const [newLogType, setNewLogType] = useState<LogType>("weight_reps");
-  const [saving, setSaving] = useState(false);
-  const [gifDialogExercise, setGifDialogExercise] = useState<Exercise | null>(null);
   const [newGifUrl, setNewGifUrl] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const filtered = exercises.filter((ex) => {
     const matchesSearch = ex.name.toLowerCase().includes(search.toLowerCase());
     const matchesMuscle = muscleFilter === "all" || ex.muscle_group === muscleFilter;
     return matchesSearch && matchesMuscle;
   });
+
+  function goBack() {
+    setView("list");
+    setDetailExercise(null);
+  }
 
   async function handleAddExercise(e: React.FormEvent) {
     e.preventDefault();
@@ -94,15 +104,155 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
       setExercises((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName("");
       setNewGifUrl("");
-      setAddOpen(false);
+      setView("list");
       toast.success(`${data.name} added!`);
     }
     setSaving(false);
   }
 
+  // ── Detail view ──────────────────────────────────────────────────────────
+  if (view === "detail" && detailExercise) {
+    const ex = detailExercise;
+    return (
+      <div className="flex flex-col h-full">
+        {/* Sub-header */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+          <Button variant="ghost" size="icon-sm" onClick={goBack}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-medium text-sm truncate">{ex.name}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe space-y-4">
+          {ex.gif_url ? (
+            <Image
+              src={ex.gif_url}
+              alt={ex.name}
+              width={400}
+              height={400}
+              unoptimized
+              className="rounded-xl object-contain w-full max-h-64"
+            />
+          ) : (
+            <div className="rounded-xl bg-muted flex items-center justify-center h-48">
+              <Dumbbell className="h-10 w-10 text-muted-foreground" />
+            </div>
+          )}
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Muscle</span>
+              <span className="font-medium">{muscleLabel(ex.muscle_group)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Equipment</span>
+              <span className="font-medium">{EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Exercise type</span>
+              <span className="font-medium">{LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}</span>
+            </div>
+          </div>
+          {selectable && (
+            <Button
+              className="w-full"
+              onClick={() => { onSelect?.(ex); setView("list"); }}
+            >
+              Add to workout
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Add custom exercise view ──────────────────────────────────────────────
+  if (view === "add") {
+    return (
+      <div className="flex flex-col h-full">
+        {/* Sub-header */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+          <Button variant="ghost" size="icon-sm" onClick={goBack}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-medium text-sm">New Exercise</span>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
+          <form onSubmit={handleAddExercise} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
+            </div>
+            <div className="space-y-2">
+              <Label>Muscle Group</Label>
+              <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as MuscleGroup)}>
+                <SelectTrigger><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
+                <SelectContent>
+                  {MUSCLE_GROUPS.map((m) => (
+                    <SelectItem key={m} value={m}>{muscleLabel(m)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Equipment</Label>
+              <Select value={newEquipment} onValueChange={(v) => setNewEquipment(v as EquipmentType)}>
+                <SelectTrigger><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
+                <SelectContent>
+                  {EQUIPMENT_TYPES.map((e) => (
+                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Exercise Type</Label>
+              <Select value={newLogType} onValueChange={(v) => setNewLogType(v as LogType)}>
+                <SelectTrigger><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
+                <SelectContent>
+                  {LOG_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      <div>
+                        <p className="font-medium">{t.label}</p>
+                        <p className="text-xs text-muted-foreground">{t.description}</p>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={newCategory} onValueChange={(v) => setNewCategory(v as ExerciseCategory)}>
+                <SelectTrigger><span>{newCategory.charAt(0).toUpperCase() + newCategory.slice(1)}</span></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                value={newGifUrl}
+                onChange={(e) => setNewGifUrl(e.target.value)}
+                placeholder="https://… (GIF or image URL)"
+                type="url"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving ? "Adding…" : "Add Exercise"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Exercise list view (default) ─────────────────────────────────────────
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
+    <div className="flex flex-col h-full">
+      {/* Search + add button */}
+      <div className="flex gap-2 px-4 pt-3 pb-2 shrink-0">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -112,87 +262,13 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             className="pl-9"
           />
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger className={cn(buttonVariants({ size: "icon", variant: "outline" }))}>
-            <Plus className="h-4 w-4" />
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add Custom Exercise</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleAddExercise} className="space-y-4 mt-2">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Muscle Group</Label>
-                <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as MuscleGroup)}>
-                  <SelectTrigger><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
-                  <SelectContent>
-                    {MUSCLE_GROUPS.map((m) => (
-                      <SelectItem key={m} value={m}>{muscleLabel(m)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Equipment</Label>
-                <Select value={newEquipment} onValueChange={(v) => setNewEquipment(v as EquipmentType)}>
-                  <SelectTrigger><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
-                  <SelectContent>
-                    {EQUIPMENT_TYPES.map((e) => (
-                      <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Exercise Type</Label>
-                <Select value={newLogType} onValueChange={(v) => setNewLogType(v as LogType)}>
-                  <SelectTrigger><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
-                  <SelectContent>
-                    {LOG_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        <div>
-                          <p className="font-medium">{t.label}</p>
-                          <p className="text-xs text-muted-foreground">{t.description}</p>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={newCategory} onValueChange={(v) => setNewCategory(v as ExerciseCategory)}>
-                  <SelectTrigger><span>{newCategory.charAt(0).toUpperCase() + newCategory.slice(1)}</span></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <Input
-                  value={newGifUrl}
-                  onChange={(e) => setNewGifUrl(e.target.value)}
-                  placeholder="https://… (GIF or image URL)"
-                  type="url"
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={saving}>
-                {saving ? "Adding…" : "Add Exercise"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button variant="outline" size="icon" onClick={() => setView("add")}>
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Muscle group filter */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-hide shrink-0">
         <Badge
           variant={muscleFilter === "all" ? "default" : "outline"}
           className="cursor-pointer shrink-0"
@@ -212,83 +288,66 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         ))}
       </div>
 
-      <div className="space-y-1">
-        {filtered.length === 0 && (
-          <p className="text-muted-foreground text-sm text-center py-8">No exercises found.</p>
-        )}
-        {filtered.map((ex) => (
-          <Card
-            key={ex.id}
-            className={selectable ? "cursor-pointer hover:bg-muted/50 transition-colors active:bg-muted" : ""}
-            onClick={() => onSelect?.(ex)}
-          >
-            <CardContent className="flex items-center gap-3 py-3">
-              {/* GIF thumbnail — tap to preview */}
-              <button
-                type="button"
-                className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted flex items-center justify-center"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (ex.gif_url) setGifDialogExercise(ex);
-                }}
-              >
-                {ex.gif_url ? (
-                  <Image
-                    src={ex.gif_url}
-                    alt={ex.name}
-                    width={40}
-                    height={40}
-                    unoptimized
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                )}
-              </button>
-
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{ex.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {muscleLabel(ex.muscle_group)}
-                  {" · "}
-                  {EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="outline" className="text-xs hidden sm:inline-flex">
-                  {LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}
-                </Badge>
-                {ex.is_custom && <Badge variant="secondary" className="text-xs">Custom</Badge>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* GIF preview dialog */}
-      <Dialog open={!!gifDialogExercise} onOpenChange={(open) => { if (!open) setGifDialogExercise(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{gifDialogExercise?.name}</DialogTitle>
-          </DialogHeader>
-          {gifDialogExercise?.gif_url && (
-            <div className="flex flex-col items-center gap-3">
-              <Image
-                src={gifDialogExercise.gif_url}
-                alt={gifDialogExercise.name}
-                width={320}
-                height={320}
-                unoptimized
-                className="rounded-lg object-contain w-full max-h-72"
-              />
-              <div className="text-sm text-muted-foreground text-center space-y-1">
-                <p>{muscleLabel(gifDialogExercise.muscle_group)} · {EQUIPMENT_TYPES.find(e => e.value === gifDialogExercise.equipment_type)?.label}</p>
-                <p>{LOG_TYPES.find(t => t.value === gifDialogExercise.log_type)?.label}</p>
-              </div>
-            </div>
+      {/* Exercise list */}
+      <div className="flex-1 overflow-y-auto px-4 pb-safe">
+        <div className="space-y-1 pb-4">
+          {filtered.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-8">No exercises found.</p>
           )}
-        </DialogContent>
-      </Dialog>
+          {filtered.map((ex) => (
+            <Card
+              key={ex.id}
+              className={cn(
+                "cursor-pointer hover:bg-muted/50 transition-colors active:bg-muted",
+              )}
+              onClick={() => selectable ? onSelect?.(ex) : null}
+            >
+              <CardContent className="flex items-center gap-3 py-3">
+                {/* GIF thumbnail — tap to open detail view */}
+                <button
+                  type="button"
+                  className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDetailExercise(ex);
+                    setView("detail");
+                  }}
+                >
+                  {ex.gif_url ? (
+                    <Image
+                      src={ex.gif_url}
+                      alt={ex.name}
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{ex.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {muscleLabel(ex.muscle_group)}
+                    {" · "}
+                    {EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+                    {LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}
+                  </Badge>
+                  {ex.is_custom && <Badge variant="secondary" className="text-xs">Custom</Badge>}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
