@@ -12,13 +12,12 @@ import { cn } from "@/lib/utils";
 import { Search, Plus, Dumbbell, ArrowLeft, Info, Check, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Exercise, MuscleGroup, ExerciseCategory, EquipmentType, LogType } from "@/types/database";
+import type { Exercise, MuscleGroup, EquipmentType, LogType } from "@/types/database";
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   "chest", "back", "shoulders", "biceps", "triceps", "forearms",
   "core", "glutes", "quads", "hamstrings", "calves", "full_body", "other",
 ];
-const CATEGORIES: ExerciseCategory[] = ["strength", "cardio", "bodyweight", "stretching", "other"];
 const EQUIPMENT_TYPES: { value: EquipmentType; label: string }[] = [
   { value: "barbell", label: "Barbell" },
   { value: "dumbbell", label: "Dumbbell" },
@@ -67,7 +66,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   // Add-exercise form state
   const [newName, setNewName] = useState("");
   const [newMuscle, setNewMuscle] = useState<MuscleGroup>("other");
-  const [newCategory, setNewCategory] = useState<ExerciseCategory>("strength");
   const [newEquipment, setNewEquipment] = useState<EquipmentType>("other");
   const [newLogType, setNewLogType] = useState<LogType>("weight_reps");
   const [newGifUrl, setNewGifUrl] = useState("");
@@ -212,7 +210,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
       .insert({
         name: newName,
         muscle_group: newMuscle,
-        category: newCategory,
         equipment_type: newEquipment,
         log_type: newLogType,
         gif_url: newGifUrl.trim() || null,
@@ -236,7 +233,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   function openEdit(ex: Exercise) {
     setNewName(ex.name);
     setNewMuscle(ex.muscle_group);
-    setNewCategory(ex.category);
     setNewEquipment(ex.equipment_type);
     setNewLogType(ex.log_type);
     setNewGifUrl(ex.gif_url ?? "");
@@ -254,7 +250,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
       .update({
         name: newName,
         muscle_group: newMuscle,
-        category: newCategory,
         equipment_type: newEquipment,
         log_type: newLogType,
         gif_url: newGifUrl.trim() || null,
@@ -320,10 +315,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             <div className="flex justify-between px-4 py-3">
               <span className="text-muted-foreground">Exercise type</span>
               <span className="font-medium">{LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}</span>
-            </div>
-            <div className="flex justify-between px-4 py-3">
-              <span className="text-muted-foreground">Category</span>
-              <span className="font-medium capitalize">{ex.category}</span>
             </div>
             {ex.is_custom && (
               <div className="flex justify-between px-4 py-3">
@@ -402,17 +393,11 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={newCategory} onValueChange={(v) => setNewCategory(v as ExerciseCategory)}>
-                <SelectTrigger><span>{newCategory.charAt(0).toUpperCase() + newCategory.slice(1)}</span></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {newLogType !== detailExercise.log_type && (
+                <p className="text-xs text-muted-foreground">
+                  Only affects new sets — past workout history is unchanged.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
@@ -483,17 +468,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
                         <p className="text-xs text-muted-foreground">{t.description}</p>
                       </div>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={newCategory} onValueChange={(v) => setNewCategory(v as ExerciseCategory)}>
-                <SelectTrigger><span>{newCategory.charAt(0).toUpperCase() + newCategory.slice(1)}</span></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
