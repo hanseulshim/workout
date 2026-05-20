@@ -292,17 +292,8 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               <Pencil className="h-4 w-4" />
             </Button>
           )}
-          {selectable && (
-            <Button
-              variant={isSelected ? "default" : "outline"}
-              size="sm"
-              onClick={() => toggleSelect(ex)}
-            >
-              {isSelected ? <><Check className="h-3 w-3 mr-1" />Selected</> : "Select"}
-            </Button>
-          )}
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {ex.gif_url ? (
             <Image
               src={ex.gif_url}
@@ -342,6 +333,18 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             )}
           </div>
         </div>
+        {/* Sticky select button — only in selectable mode */}
+        {selectable && (
+          <div className="shrink-0 px-4 py-3 border-t bg-background pb-safe">
+            <Button
+              className="w-full"
+              variant={isSelected ? "secondary" : "default"}
+              onClick={() => toggleSelect(ex)}
+            >
+              {isSelected ? <><Check className="h-4 w-4 mr-2" />Selected — tap to remove</> : "Add to Workout"}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
