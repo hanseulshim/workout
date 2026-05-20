@@ -7,8 +7,8 @@ export async function Header() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="max-w-2xl mx-auto flex items-center justify-between h-14 px-4">
+    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
+      <div className="flex items-center justify-between h-14 px-4">
         <div className="flex items-center gap-2">
           <Dumbbell className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">Workout Tracker</span>
@@ -18,3 +18,4 @@ export async function Header() {
     </header>
   );
 }
+

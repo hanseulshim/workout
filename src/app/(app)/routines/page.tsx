@@ -31,7 +31,7 @@ export default async function RoutinesPage() {
         </p>
       )}
 
-      <div className="space-y-2">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {routines?.map((routine) => (
           <Card key={routine.id}>
             <Link href={`/routines/${routine.id}`}>

@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Check, Plus, Trash2, Timer, X, ChevronDown } from "lucide-react";
 import { ExerciseList } from "@/components/exercises/exercise-list";
-import type { Exercise } from "@/types/database";
+import type { Exercise, LogType } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +87,7 @@ export function ActiveWorkoutScreen() {
     addExercise({
       exerciseId: exercise.id,
       exerciseName: exercise.name,
+      logType: exercise.log_type,
       sets: [
         {
           id: Math.random().toString(36).slice(2),
@@ -94,7 +95,8 @@ export function ActiveWorkoutScreen() {
           reps: "",
           weight: "",
           weightUnit: "lbs",
-          isBodyweight: false,
+          isBodyweight: exercise.log_type === "bodyweight_reps" || exercise.log_type === "weighted_bodyweight" || exercise.log_type === "assisted_bodyweight",
+          durationSeconds: "",
           completed: false,
         },
       ],
@@ -122,10 +124,13 @@ export function ActiveWorkoutScreen() {
           session_id: activeWorkout.sessionId!,
           exercise_id: ex.exerciseId,
           set_number: s.setNumber,
-          reps: s.reps ? parseInt(s.reps) : null,
-          weight: s.weight ? parseFloat(s.weight) : null,
+          reps: ex.logType === "duration" ? null : (s.reps ? parseInt(s.reps) : null),
+          weight: (ex.logType === "weight_reps" || ex.logType === "weighted_bodyweight" || ex.logType === "assisted_bodyweight")
+            ? (s.weight ? parseFloat(s.weight) : null)
+            : null,
           weight_unit: s.weightUnit,
-          is_bodyweight: s.isBodyweight,
+          is_bodyweight: ex.logType === "bodyweight_reps" || ex.logType === "weighted_bodyweight" || ex.logType === "assisted_bodyweight",
+          duration_seconds: ex.logType === "duration" ? (s.durationSeconds ? parseInt(s.durationSeconds) : null) : null,
         }))
     );
 
@@ -217,11 +222,11 @@ export function ActiveWorkoutScreen() {
           <Plus className="h-4 w-4 mr-2" />
           Add Exercise
         </SheetTrigger>
-        <SheetContent side="bottom" className="h-[85vh]">
-          <SheetHeader>
+        <SheetContent side="bottom" className="flex flex-col h-[90vh] p-0">
+          <SheetHeader className="px-4 pt-4 pb-2 shrink-0 border-b">
             <SheetTitle>Add Exercise</SheetTitle>
           </SheetHeader>
-          <div className="mt-4 overflow-y-auto h-full pb-8">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 pb-safe">
             <ExerciseList
               exercises={exercises}
               userId=""
@@ -279,50 +284,16 @@ function ExerciseCard({
       {!collapsed && (
         <CardContent className="space-y-2 pt-0">
           {/* Column headers */}
-          <div className="grid grid-cols-[32px_1fr_1fr_48px] gap-2 px-1">
-            <span className="text-xs text-muted-foreground text-center">Set</span>
-            <span className="text-xs text-muted-foreground text-center">Weight</span>
-            <span className="text-xs text-muted-foreground text-center">Reps</span>
-            <span />
-          </div>
+          <SetColumnHeaders logType={exercise.logType} />
 
           {exercise.sets.map((s) => (
-            <div
+            <SetRow
               key={s.id}
-              className={cn(
-                "grid grid-cols-[32px_1fr_1fr_48px] gap-2 items-center rounded-lg px-1 py-1 transition-colors",
-                s.completed && "bg-primary/10"
-              )}
-            >
-              <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={s.weight}
-                onChange={(e) => onUpdateSet(s.id, { weight: e.target.value })}
-                className="h-9 text-center text-sm"
-              />
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="0"
-                value={s.reps}
-                onChange={(e) => onUpdateSet(s.id, { reps: e.target.value })}
-                className="h-9 text-center text-sm"
-              />
-              <button
-                onClick={() => onToggleComplete(s.id)}
-                className={cn(
-                  "h-9 w-9 rounded-lg flex items-center justify-center transition-colors",
-                  s.completed
-                    ? "bg-primary text-primary-foreground"
-                    : "border border-input hover:bg-muted"
-                )}
-              >
-                <Check className="h-4 w-4" />
-              </button>
-            </div>
+              set={s}
+              logType={exercise.logType}
+              onUpdate={(updates) => onUpdateSet(s.id, updates)}
+              onToggleComplete={() => onToggleComplete(s.id)}
+            />
           ))}
 
           <div className="flex gap-2 pt-1">
@@ -343,5 +314,124 @@ function ExerciseCard({
         </CardContent>
       )}
     </Card>
+  );
+}
+
+function SetColumnHeaders({ logType }: { logType: LogType }) {
+  if (logType === "duration") {
+    return (
+      <div className="grid grid-cols-[32px_1fr_48px] gap-2 px-1">
+        <span className="text-xs text-muted-foreground text-center">Set</span>
+        <span className="text-xs text-muted-foreground text-center">Duration (sec)</span>
+        <span />
+      </div>
+    );
+  }
+  if (logType === "bodyweight_reps") {
+    return (
+      <div className="grid grid-cols-[32px_1fr_48px] gap-2 px-1">
+        <span className="text-xs text-muted-foreground text-center">Set</span>
+        <span className="text-xs text-muted-foreground text-center">Reps</span>
+        <span />
+      </div>
+    );
+  }
+  const weightLabel =
+    logType === "weighted_bodyweight" ? "+Weight" :
+    logType === "assisted_bodyweight" ? "Assist" :
+    "Weight";
+  return (
+    <div className="grid grid-cols-[32px_1fr_1fr_48px] gap-2 px-1">
+      <span className="text-xs text-muted-foreground text-center">Set</span>
+      <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>
+      <span className="text-xs text-muted-foreground text-center">Reps</span>
+      <span />
+    </div>
+  );
+}
+
+function SetRow({
+  set: s,
+  logType,
+  onUpdate,
+  onToggleComplete,
+}: {
+  set: ActiveSet;
+  logType: LogType;
+  onUpdate: (updates: Partial<ActiveSet>) => void;
+  onToggleComplete: () => void;
+}) {
+  const rowClass = cn(
+    "grid gap-2 items-center rounded-lg px-1 py-1 transition-colors",
+    s.completed && "bg-primary/10"
+  );
+  const checkBtn = (
+    <button
+      onClick={onToggleComplete}
+      className={cn(
+        "h-9 w-9 rounded-lg flex items-center justify-center transition-colors shrink-0",
+        s.completed ? "bg-primary text-primary-foreground" : "border border-input hover:bg-muted"
+      )}
+    >
+      <Check className="h-4 w-4" />
+    </button>
+  );
+
+  if (logType === "duration") {
+    return (
+      <div className={cn(rowClass, "grid-cols-[32px_1fr_48px]")}>
+        <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          placeholder="0"
+          value={s.durationSeconds}
+          onChange={(e) => onUpdate({ durationSeconds: e.target.value })}
+          className="h-9 text-center text-sm"
+        />
+        {checkBtn}
+      </div>
+    );
+  }
+
+  if (logType === "bodyweight_reps") {
+    return (
+      <div className={cn(rowClass, "grid-cols-[32px_1fr_48px]")}>
+        <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          placeholder="0"
+          value={s.reps}
+          onChange={(e) => onUpdate({ reps: e.target.value })}
+          className="h-9 text-center text-sm"
+        />
+        {checkBtn}
+      </div>
+    );
+  }
+
+  // weight_reps | weighted_bodyweight | assisted_bodyweight
+  return (
+    <div className={cn(rowClass, "grid-cols-[32px_1fr_1fr_48px]")}>
+      <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
+      <Input
+        type="number"
+        inputMode="decimal"
+        placeholder="0"
+        value={s.weight}
+        onChange={(e) => onUpdate({ weight: e.target.value })}
+        className="h-9 text-center text-sm"
+      />
+      <Input
+        type="number"
+        inputMode="numeric"
+        placeholder="0"
+        value={s.reps}
+        onChange={(e) => onUpdate({ reps: e.target.value })}
+        className="h-9 text-center text-sm"
+      />
+      {checkBtn}
+    </div>
   );
 }

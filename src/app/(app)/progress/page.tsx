@@ -52,7 +52,7 @@ export default async function ProgressPage() {
           Log some workouts to track progress here!
         </p>
       )}
-      <div className="space-y-2">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {exercises.map((ex) => (
           <Card key={ex.id}>
             <Link href={`/progress/${ex.id}`}>

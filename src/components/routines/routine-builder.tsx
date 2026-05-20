@@ -174,11 +174,11 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
           <Plus className="h-4 w-4 mr-2" />
           Add Exercise
         </SheetTrigger>
-        <SheetContent side="bottom" className="h-[85vh]">
-          <SheetHeader>
+        <SheetContent side="bottom" className="flex flex-col h-[90vh] p-0">
+          <SheetHeader className="px-4 pt-4 pb-2 shrink-0 border-b">
             <SheetTitle>Add Exercise</SheetTitle>
           </SheetHeader>
-          <div className="mt-4 overflow-y-auto h-full pb-8">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 pb-safe">
             <ExerciseList exercises={exercises} userId={userId} selectable onSelect={handleAddExercise} />
           </div>
         </SheetContent>

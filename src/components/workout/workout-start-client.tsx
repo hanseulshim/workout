@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Play, Dumbbell } from "lucide-react";
+import type { LogType } from "@/types/database";
 
 interface Routine {
   id: string;
@@ -21,7 +22,7 @@ interface RoutineWithExercises extends Routine {
     position: number;
     default_sets: number;
     default_reps: number | null;
-    exercises: { id: string; name: string } | null;
+    exercises: { id: string; name: string; log_type: string } | null;
   }>;
 }
 
@@ -68,6 +69,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
       .map((re) => ({
         exerciseId: re.exercise_id,
         exerciseName: re.exercises?.name ?? "Unknown",
+        logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
         sets: Array.from({ length: re.default_sets }, (_, i) => ({
           id: Math.random().toString(36).slice(2),
           setNumber: i + 1,
@@ -75,6 +77,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
           weight: "",
           weightUnit: defaultWeightUnit,
           isBodyweight: false,
+          durationSeconds: "",
           completed: false,
         })),
       }));

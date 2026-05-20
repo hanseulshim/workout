@@ -12,13 +12,32 @@ import { cn } from "@/lib/utils";
 import { Search, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Exercise, MuscleGroup, ExerciseCategory } from "@/types/database";
+import type { Exercise, MuscleGroup, ExerciseCategory, EquipmentType, LogType } from "@/types/database";
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   "chest", "back", "shoulders", "biceps", "triceps", "forearms",
   "core", "glutes", "quads", "hamstrings", "calves", "full_body", "other",
 ];
 const CATEGORIES: ExerciseCategory[] = ["strength", "cardio", "bodyweight", "stretching", "other"];
+const EQUIPMENT_TYPES: { value: EquipmentType; label: string }[] = [
+  { value: "barbell", label: "Barbell" },
+  { value: "dumbbell", label: "Dumbbell" },
+  { value: "bodyweight", label: "Bodyweight" },
+  { value: "machine", label: "Machine" },
+  { value: "cable", label: "Cable" },
+  { value: "ez_bar", label: "EZ Bar" },
+  { value: "kettlebell", label: "Kettlebell" },
+  { value: "band", label: "Band" },
+  { value: "plate", label: "Plate" },
+  { value: "other", label: "Other" },
+];
+const LOG_TYPES: { value: LogType; label: string; description: string }[] = [
+  { value: "weight_reps", label: "Weight & Reps", description: "Log weight + reps each set" },
+  { value: "bodyweight_reps", label: "Bodyweight Reps", description: "Log reps only" },
+  { value: "weighted_bodyweight", label: "Weighted Bodyweight", description: "Log added weight + reps" },
+  { value: "assisted_bodyweight", label: "Assisted Bodyweight", description: "Log assistance weight + reps" },
+  { value: "duration", label: "Duration", description: "Log time (seconds)" },
+];
 
 const muscleLabel = (m: MuscleGroup) =>
   m.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -38,6 +57,8 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   const [newName, setNewName] = useState("");
   const [newMuscle, setNewMuscle] = useState<MuscleGroup>("other");
   const [newCategory, setNewCategory] = useState<ExerciseCategory>("strength");
+  const [newEquipment, setNewEquipment] = useState<EquipmentType>("other");
+  const [newLogType, setNewLogType] = useState<LogType>("weight_reps");
   const [saving, setSaving] = useState(false);
 
   const filtered = exercises.filter((ex) => {
@@ -52,7 +73,15 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     const supabase = createClient();
     const { data, error } = await supabase
       .from("exercises")
-      .insert({ name: newName, muscle_group: newMuscle, category: newCategory, is_custom: true, user_id: userId })
+      .insert({
+        name: newName,
+        muscle_group: newMuscle,
+        category: newCategory,
+        equipment_type: newEquipment,
+        log_type: newLogType,
+        is_custom: true,
+        user_id: userId,
+      })
       .select()
       .single();
     if (error) {
@@ -82,7 +111,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
           <DialogTrigger className={cn(buttonVariants({ size: "icon", variant: "outline" }))}>
             <Plus className="h-4 w-4" />
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Custom Exercise</DialogTitle>
             </DialogHeader>
@@ -94,7 +123,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               <div className="space-y-2">
                 <Label>Muscle Group</Label>
                 <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as MuscleGroup)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
                   <SelectContent>
                     {MUSCLE_GROUPS.map((m) => (
                       <SelectItem key={m} value={m}>{muscleLabel(m)}</SelectItem>
@@ -103,9 +132,36 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Equipment</Label>
+                <Select value={newEquipment} onValueChange={(v) => setNewEquipment(v as EquipmentType)}>
+                  <SelectTrigger><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
+                  <SelectContent>
+                    {EQUIPMENT_TYPES.map((e) => (
+                      <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Exercise Type</Label>
+                <Select value={newLogType} onValueChange={(v) => setNewLogType(v as LogType)}>
+                  <SelectTrigger><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
+                  <SelectContent>
+                    {LOG_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        <div>
+                          <p className="font-medium">{t.label}</p>
+                          <p className="text-xs text-muted-foreground">{t.description}</p>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Category</Label>
                 <Select value={newCategory} onValueChange={(v) => setNewCategory(v as ExerciseCategory)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><span>{newCategory.charAt(0).toUpperCase() + newCategory.slice(1)}</span></SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((c) => (
                       <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
@@ -155,9 +211,18 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             <CardContent className="flex items-center justify-between py-3">
               <div>
                 <p className="font-medium text-sm">{ex.name}</p>
-                <p className="text-xs text-muted-foreground">{muscleLabel(ex.muscle_group)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {muscleLabel(ex.muscle_group)}
+                  {" · "}
+                  {EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}
+                </p>
               </div>
-              {ex.is_custom && <Badge variant="secondary" className="text-xs">Custom</Badge>}
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+                  {LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}
+                </Badge>
+                {ex.is_custom && <Badge variant="secondary" className="text-xs">Custom</Badge>}
+              </div>
             </CardContent>
           </Card>
         ))}

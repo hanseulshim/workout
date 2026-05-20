@@ -46,54 +46,56 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Recent Routines */}
-      {routines && routines.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            My Routines
-          </h2>
-          <div className="space-y-2">
-            {routines.map((routine) => (
-              <Card key={routine.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <Link href={`/workout/start?routine=${routine.id}`}>
-                  <CardContent className="flex items-center justify-between py-4">
-                    <span className="font-medium">{routine.name}</span>
-                    <Button size="sm" variant="ghost">
-                      <Play className="h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Link>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Recent Routines */}
+        {routines && routines.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              My Routines
+            </h2>
+            <div className="space-y-2">
+              {routines.map((routine) => (
+                <Card key={routine.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Link href={`/workout/start?routine=${routine.id}`}>
+                    <CardContent className="flex items-center justify-between py-4">
+                      <span className="font-medium">{routine.name}</span>
+                      <Button size="sm" variant="ghost">
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* Recent Workouts */}
-      {recentWorkouts && recentWorkouts.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Recent Workouts
-          </h2>
-          <div className="space-y-2">
-            {recentWorkouts.map((session) => (
-              <Card key={session.id}>
-                <Link href={`/history/${session.id}`}>
-                  <CardContent className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="font-medium">{session.name}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="h-3 w-3" />
-                        {formatDistanceToNow(new Date(session.started_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Link>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+        {/* Recent Workouts */}
+        {recentWorkouts && recentWorkouts.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Recent Workouts
+            </h2>
+            <div className="space-y-2">
+              {recentWorkouts.map((session) => (
+                <Card key={session.id}>
+                  <Link href={`/history/${session.id}`}>
+                    <CardContent className="flex items-center justify-between py-4">
+                      <div>
+                        <p className="font-medium">{session.name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Clock className="h-3 w-3" />
+                          {formatDistanceToNow(new Date(session.started_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
 
       {!routines?.length && !recentWorkouts?.length && (
         <Card>

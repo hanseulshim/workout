@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { WeightUnit } from "@/types/database";
+import type { WeightUnit, LogType } from "@/types/database";
 
 export interface ActiveSet {
   id: string;
@@ -9,12 +9,14 @@ export interface ActiveSet {
   weight: string;
   weightUnit: WeightUnit;
   isBodyweight: boolean;
+  durationSeconds: string;
   completed: boolean;
 }
 
 export interface ActiveExercise {
   exerciseId: string;
   exerciseName: string;
+  logType: LogType;
   sets: ActiveSet[];
 }
 
@@ -93,6 +95,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
                   weight: lastSet?.weight ?? "",
                   weightUnit: lastSet?.weightUnit ?? get().defaultWeightUnit,
                   isBodyweight: lastSet?.isBodyweight ?? false,
+                  durationSeconds: lastSet?.durationSeconds ?? "",
                   completed: false,
                 };
                 return { ...ex, sets: [...ex.sets, newSet] };

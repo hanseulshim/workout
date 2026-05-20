@@ -23,6 +23,25 @@ export type MuscleGroup =
   | "full_body"
   | "other";
 
+export type EquipmentType =
+  | "barbell"
+  | "dumbbell"
+  | "bodyweight"
+  | "machine"
+  | "cable"
+  | "ez_bar"
+  | "kettlebell"
+  | "band"
+  | "plate"
+  | "other";
+
+export type LogType =
+  | "weight_reps"
+  | "bodyweight_reps"
+  | "weighted_bodyweight"
+  | "assisted_bodyweight"
+  | "duration";
+
 export interface Database {
   public: {
     Tables: {
@@ -32,6 +51,8 @@ export interface Database {
           name: string;
           muscle_group: MuscleGroup;
           category: ExerciseCategory;
+          equipment_type: EquipmentType;
+          log_type: LogType;
           is_custom: boolean;
           user_id: string | null;
           created_at: string;
@@ -41,6 +62,8 @@ export interface Database {
           name: string;
           muscle_group: MuscleGroup;
           category: ExerciseCategory;
+          equipment_type?: EquipmentType;
+          log_type?: LogType;
           is_custom?: boolean;
           user_id?: string | null;
           created_at?: string;
@@ -142,6 +165,8 @@ export interface Database {
       weight_unit: WeightUnit;
       exercise_category: ExerciseCategory;
       muscle_group: MuscleGroup;
+      equipment_type: EquipmentType;
+      log_type: LogType;
     };
   };
 }
