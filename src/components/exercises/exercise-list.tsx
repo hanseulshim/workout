@@ -326,7 +326,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         </div>
         {/* Sticky select button — only in selectable mode */}
         {selectable && (
-          <div className="shrink-0 px-4 py-3 border-t bg-background pb-safe">
+          <div className="shrink-0 px-4 pt-3 pb-6 bg-background shadow-[0_-8px_16px_-4px_hsl(var(--background))]">
             <Button
               className="w-full"
               variant={isSelected ? "secondary" : "default"}
@@ -563,7 +563,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
 
       {/* Sticky confirm button — selectable mode only */}
       {selectable && selectedIds.size > 0 && (
-        <div className="shrink-0 px-4 py-3 border-t bg-background pb-safe">
+        <div className="shrink-0 px-4 pt-3 pb-6 bg-background shadow-[0_-8px_16px_-4px_hsl(var(--background))]">
           <Button className="w-full" onClick={confirmSelection}>
             Add {selectedIds.size} Exercise{selectedIds.size !== 1 ? "s" : ""}
           </Button>
