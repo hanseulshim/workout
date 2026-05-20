@@ -83,26 +83,29 @@ export function ActiveWorkoutScreen() {
   );
   const progress = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
 
-  function handleAddExercise(exercise: Exercise) {
-    addExercise({
-      exerciseId: exercise.id,
-      exerciseName: exercise.name,
-      logType: exercise.log_type,
-      sets: [
-        {
-          id: Math.random().toString(36).slice(2),
-          setNumber: 1,
-          reps: "",
-          weight: "",
-          weightUnit: "lbs",
-          isBodyweight: exercise.log_type === "bodyweight_reps" || exercise.log_type === "weighted_bodyweight" || exercise.log_type === "assisted_bodyweight",
-          durationSeconds: "",
-          completed: false,
-        },
-      ],
+  function handleAddExercise(exercises: Exercise[]) {
+    exercises.forEach((exercise) => {
+      addExercise({
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        logType: exercise.log_type,
+        sets: [
+          {
+            id: Math.random().toString(36).slice(2),
+            setNumber: 1,
+            reps: "",
+            weight: "",
+            weightUnit: "lbs",
+            isBodyweight: exercise.log_type === "bodyweight_reps" || exercise.log_type === "weighted_bodyweight" || exercise.log_type === "assisted_bodyweight",
+            durationSeconds: "",
+            completed: false,
+          },
+        ],
+      });
     });
     setAddExerciseOpen(false);
-    toast.success(`${exercise.name} added`);
+    if (exercises.length === 1) toast.success(`${exercises[0].name} added`);
+    else toast.success(`${exercises.length} exercises added`);
   }
 
   async function handleFinish() {

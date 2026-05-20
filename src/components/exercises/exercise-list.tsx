@@ -4,12 +4,12 @@ import { useState } from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Search, Plus, Dumbbell, ArrowLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Dumbbell, ArrowLeft, Info, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Exercise, MuscleGroup, ExerciseCategory, EquipmentType, LogType } from "@/types/database";
@@ -47,7 +47,7 @@ type View = "list" | "add" | "detail";
 interface Props {
   exercises: Exercise[];
   userId: string;
-  onSelect?: (exercise: Exercise) => void;
+  onSelect?: (exercises: Exercise[]) => void;
   selectable?: boolean;
 }
 
@@ -55,6 +55,9 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   const [exercises, setExercises] = useState(initial);
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState<MuscleGroup | "all">("all");
+
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Navigation state — single active view, no nested dialogs
   const [view, setView] = useState<View>("list");
@@ -78,6 +81,21 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   function goBack() {
     setView("list");
     setDetailExercise(null);
+  }
+
+  function toggleSelect(ex: Exercise) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ex.id)) next.delete(ex.id);
+      else next.add(ex.id);
+      return next;
+    });
+  }
+
+  function confirmSelection() {
+    const chosen = exercises.filter((ex) => selectedIds.has(ex.id));
+    onSelect?.(chosen);
+    setSelectedIds(new Set());
   }
 
   async function handleAddExercise(e: React.FormEvent) {
@@ -113,6 +131,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   // ── Detail view ──────────────────────────────────────────────────────────
   if (view === "detail" && detailExercise) {
     const ex = detailExercise;
+    const isSelected = selectedIds.has(ex.id);
     return (
       <div className="flex flex-col h-full">
         {/* Sub-header */}
@@ -120,7 +139,16 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
           <Button variant="ghost" size="icon-sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="font-medium text-sm truncate">{ex.name}</span>
+          <span className="font-medium text-sm truncate flex-1">{ex.name}</span>
+          {selectable && (
+            <Button
+              variant={isSelected ? "default" : "outline"}
+              size="sm"
+              onClick={() => toggleSelect(ex)}
+            >
+              {isSelected ? <><Check className="h-3 w-3 mr-1" />Selected</> : "Select"}
+            </Button>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe space-y-4">
           {ex.gif_url ? (
@@ -137,28 +165,30 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               <Dumbbell className="h-10 w-10 text-muted-foreground" />
             </div>
           )}
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
+          <div className="rounded-xl border divide-y text-sm">
+            <div className="flex justify-between px-4 py-3">
               <span className="text-muted-foreground">Muscle</span>
               <span className="font-medium">{muscleLabel(ex.muscle_group)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between px-4 py-3">
               <span className="text-muted-foreground">Equipment</span>
               <span className="font-medium">{EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between px-4 py-3">
               <span className="text-muted-foreground">Exercise type</span>
               <span className="font-medium">{LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}</span>
             </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-muted-foreground">Category</span>
+              <span className="font-medium capitalize">{ex.category}</span>
+            </div>
+            {ex.is_custom && (
+              <div className="flex justify-between px-4 py-3">
+                <span className="text-muted-foreground">Source</span>
+                <span className="font-medium">Custom</span>
+              </div>
+            )}
           </div>
-          {selectable && (
-            <Button
-              className="w-full"
-              onClick={() => { onSelect?.(ex); setView("list"); }}
-            >
-              Add to workout
-            </Button>
-          )}
         </div>
       </div>
     );
@@ -294,60 +324,88 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
           {filtered.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-8">No exercises found.</p>
           )}
-          {filtered.map((ex) => (
-            <Card
-              key={ex.id}
-              className={cn(
-                "cursor-pointer hover:bg-muted/50 transition-colors active:bg-muted",
-              )}
-              onClick={() => selectable ? onSelect?.(ex) : null}
-            >
-              <CardContent className="flex items-center gap-3 py-3">
-                {/* GIF thumbnail — tap to open detail view */}
-                <button
-                  type="button"
-                  className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted flex items-center justify-center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDetailExercise(ex);
-                    setView("detail");
-                  }}
-                >
-                  {ex.gif_url ? (
-                    <Image
-                      src={ex.gif_url}
-                      alt={ex.name}
-                      width={40}
-                      height={40}
-                      unoptimized
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
+          {filtered.map((ex) => {
+            const isSelected = selectedIds.has(ex.id);
+            return (
+              <Card
+                key={ex.id}
+                className={cn(
+                  "cursor-pointer transition-colors",
+                  selectable
+                    ? isSelected
+                      ? "bg-primary/10 border-primary/40 hover:bg-primary/15"
+                      : "hover:bg-muted/50 active:bg-muted"
+                    : "hover:bg-muted/50 active:bg-muted",
+                )}
+                onClick={() => {
+                  if (selectable) toggleSelect(ex);
+                  else { setDetailExercise(ex); setView("detail"); }
+                }}
+              >
+                <CardContent className="flex items-center gap-3 py-3">
+                  {/* Thumbnail / selected check */}
+                  <div className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted flex items-center justify-center relative">
+                    {ex.gif_url ? (
+                      <Image
+                        src={ex.gif_url}
+                        alt={ex.name}
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="object-cover w-full h-full"
+                      />
+                    ) : (
+                      <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {isSelected && (
+                      <div className="absolute inset-0 bg-primary/80 flex items-center justify-center">
+                        <Check className="h-5 w-5 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{ex.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {muscleLabel(ex.muscle_group)}
-                    {" · "}
-                    {EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}
-                  </p>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{ex.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {muscleLabel(ex.muscle_group)}
+                      {" · "}
+                      {EQUIPMENT_TYPES.find(e => e.value === ex.equipment_type)?.label ?? ex.equipment_type}
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <Badge variant="outline" className="text-xs hidden sm:inline-flex">
-                    {LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}
-                  </Badge>
-                  {ex.is_custom && <Badge variant="secondary" className="text-xs">Custom</Badge>}
-                  <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+                      {LOG_TYPES.find(t => t.value === ex.log_type)?.label ?? ex.log_type}
+                    </Badge>
+                    {ex.is_custom && <Badge variant="secondary" className="text-xs">Custom</Badge>}
+                    {/* Info button always opens detail */}
+                    <button
+                      type="button"
+                      className="ml-1 p-1 rounded-md hover:bg-muted text-muted-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailExercise(ex);
+                        setView("detail");
+                      }}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
+
+      {/* Sticky confirm button — selectable mode only */}
+      {selectable && selectedIds.size > 0 && (
+        <div className="shrink-0 px-4 py-3 border-t bg-background pb-safe">
+          <Button className="w-full" onClick={confirmSelection}>
+            Add {selectedIds.size} Exercise{selectedIds.size !== 1 ? "s" : ""}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

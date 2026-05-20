@@ -57,12 +57,14 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  function handleAddExercise(exercise: Exercise) {
-    if (selected.find((s) => s.exerciseId === exercise.id)) {
-      toast.info("Already added");
-      return;
-    }
-    setSelected((prev) => [...prev, { exerciseId: exercise.id, name: exercise.name, sets: 3, reps: "" }]);
+  function handleAddExercise(exercises: Exercise[]) {
+    const toAdd = exercises.filter((exercise) => !selected.find((s) => s.exerciseId === exercise.id));
+    if (toAdd.length < exercises.length) toast.info("Some exercises already added");
+    if (toAdd.length === 0) return;
+    setSelected((prev) => [
+      ...prev,
+      ...toAdd.map((exercise) => ({ exerciseId: exercise.id, name: exercise.name, sets: 3, reps: "" })),
+    ]);
     setAddOpen(false);
   }
 
