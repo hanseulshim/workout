@@ -128,3 +128,21 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  /* Prevent text size adjust on iOS after orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Safe area insets for iPhone notch / home indicator */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
