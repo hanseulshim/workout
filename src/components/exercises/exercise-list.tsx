@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Search, Plus, Dumbbell, ArrowLeft, Info, Check } from "lucide-react";
+import { Search, Plus, Dumbbell, ArrowLeft, Info, Check, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Exercise, MuscleGroup, ExerciseCategory, EquipmentType, LogType } from "@/types/database";
@@ -42,7 +42,7 @@ const LOG_TYPES: { value: LogType; label: string; description: string }[] = [
 const muscleLabel = (m: MuscleGroup) =>
   m.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-type View = "list" | "add" | "detail";
+type View = "list" | "add" | "detail" | "edit";
 
 interface Props {
   exercises: Exercise[];
@@ -233,6 +233,48 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     setSaving(false);
   }
 
+  function openEdit(ex: Exercise) {
+    setNewName(ex.name);
+    setNewMuscle(ex.muscle_group);
+    setNewCategory(ex.category);
+    setNewEquipment(ex.equipment_type);
+    setNewLogType(ex.log_type);
+    setNewGifUrl(ex.gif_url ?? "");
+    setDetailExercise(ex);
+    setView("edit");
+  }
+
+  async function handleUpdateExercise(e: React.FormEvent) {
+    e.preventDefault();
+    if (!detailExercise) return;
+    setSaving(true);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("exercises")
+      .update({
+        name: newName,
+        muscle_group: newMuscle,
+        category: newCategory,
+        equipment_type: newEquipment,
+        log_type: newLogType,
+        gif_url: newGifUrl.trim() || null,
+      })
+      .eq("id", detailExercise.id)
+      .select()
+      .single();
+    if (error) {
+      toast.error("Failed to update exercise");
+    } else {
+      setExercises((prev) =>
+        prev.map((ex) => (ex.id === data.id ? data : ex)).sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setDetailExercise(data);
+      setView("detail");
+      toast.success(`${data.name} updated!`);
+    }
+    setSaving(false);
+  }
+
   // ── Detail view ──────────────────────────────────────────────────────────
   if (view === "detail" && detailExercise) {
     const ex = detailExercise;
@@ -245,6 +287,11 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-medium text-sm truncate flex-1">{ex.name}</span>
+          {ex.is_custom && (
+            <Button variant="ghost" size="icon-sm" onClick={() => openEdit(ex)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
           {selectable && (
             <Button
               variant={isSelected ? "default" : "outline"}
@@ -294,6 +341,89 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               </div>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Edit custom exercise view ─────────────────────────────────────────────
+  if (view === "edit" && detailExercise) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+          <Button variant="ghost" size="icon-sm" onClick={() => setView("detail")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-medium text-sm">Edit Exercise</span>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
+          <form onSubmit={handleUpdateExercise} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
+            </div>
+            <div className="space-y-2">
+              <Label>Muscle Group</Label>
+              <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as MuscleGroup)}>
+                <SelectTrigger><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
+                <SelectContent>
+                  {MUSCLE_GROUPS.map((m) => (
+                    <SelectItem key={m} value={m}>{muscleLabel(m)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Equipment</Label>
+              <Select value={newEquipment} onValueChange={(v) => setNewEquipment(v as EquipmentType)}>
+                <SelectTrigger><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
+                <SelectContent>
+                  {EQUIPMENT_TYPES.map((e) => (
+                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Exercise Type</Label>
+              <Select value={newLogType} onValueChange={(v) => setNewLogType(v as LogType)}>
+                <SelectTrigger><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
+                <SelectContent>
+                  {LOG_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      <div>
+                        <p className="font-medium">{t.label}</p>
+                        <p className="text-xs text-muted-foreground">{t.description}</p>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={newCategory} onValueChange={(v) => setNewCategory(v as ExerciseCategory)}>
+                <SelectTrigger><span>{newCategory.charAt(0).toUpperCase() + newCategory.slice(1)}</span></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                value={newGifUrl}
+                onChange={(e) => setNewGifUrl(e.target.value)}
+                placeholder="https://… (GIF or image URL)"
+                type="url"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving ? "Saving…" : "Save Changes"}
+            </Button>
+          </form>
         </div>
       </div>
     );
