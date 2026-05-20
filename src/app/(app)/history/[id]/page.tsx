@@ -32,13 +32,14 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
     reps: number | null;
     weight_unit: string;
     is_bodyweight: boolean;
+    duration_seconds: number | null;
     completed_at: string;
-    exercises: { name: string; muscle_group: string } | null;
+    exercises: { name: string; muscle_group: string; log_type: string } | null;
   };
 
   const { data: setsRaw } = await supabase
     .from("workout_sets")
-    .select(`*, exercises(name, muscle_group)`)
+    .select(`*, exercises(name, muscle_group, log_type)`)
     .eq("session_id", id)
     .order("completed_at");
 
@@ -95,6 +96,10 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
       <div className="space-y-3">
         {[...byExercise.entries()].map(([exerciseId, exSets]) => {
           const exerciseName = exSets?.[0]?.exercises?.name ?? "Unknown";
+          const logType = exSets?.[0]?.exercises?.log_type ?? "weight_reps";
+          const isDuration = logType === "duration";
+          const isBodyweightOnly = logType === "bodyweight_reps";
+
           return (
             <Card key={exerciseId}>
               <CardHeader className="pb-2">
@@ -102,20 +107,58 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
               </CardHeader>
               <CardContent>
                 <div className="space-y-1">
-                  <div className="grid grid-cols-3 text-xs text-muted-foreground font-medium mb-2">
-                    <span>Set</span>
-                    <span className="text-center">Weight</span>
-                    <span className="text-center">Reps</span>
-                  </div>
-                  {exSets?.map((s) => (
-                    <div key={s.id} className="grid grid-cols-3 text-sm">
-                      <span className="text-muted-foreground">{s.set_number}</span>
-                      <span className="text-center">
-                        {s.is_bodyweight ? "BW" : s.weight ? `${s.weight} ${s.weight_unit}` : "—"}
-                      </span>
-                      <span className="text-center">{s.reps ?? "—"}</span>
-                    </div>
-                  ))}
+                  {isDuration ? (
+                    <>
+                      <div className="grid grid-cols-2 text-xs text-muted-foreground font-medium mb-2">
+                        <span>Set</span>
+                        <span className="text-center">Duration</span>
+                      </div>
+                      {exSets?.map((s) => (
+                        <div key={s.id} className="grid grid-cols-2 text-sm">
+                          <span className="text-muted-foreground">{s.set_number}</span>
+                          <span className="text-center">
+                            {s.duration_seconds != null
+                              ? s.duration_seconds >= 60
+                                ? `${Math.floor(s.duration_seconds / 60)}m ${s.duration_seconds % 60}s`
+                                : `${s.duration_seconds}s`
+                              : "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  ) : isBodyweightOnly ? (
+                    <>
+                      <div className="grid grid-cols-2 text-xs text-muted-foreground font-medium mb-2">
+                        <span>Set</span>
+                        <span className="text-center">Reps</span>
+                      </div>
+                      {exSets?.map((s) => (
+                        <div key={s.id} className="grid grid-cols-2 text-sm">
+                          <span className="text-muted-foreground">{s.set_number}</span>
+                          <span className="text-center">{s.reps ?? "—"}</span>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 text-xs text-muted-foreground font-medium mb-2">
+                        <span>Set</span>
+                        <span className="text-center">
+                          {logType === "weighted_bodyweight" ? "+Weight" : logType === "assisted_bodyweight" ? "Assist" : "Weight"}
+                        </span>
+                        <span className="text-center">Reps</span>
+                      </div>
+                      {exSets?.map((s) => (
+                        <div key={s.id} className="grid grid-cols-3 text-sm">
+                          <span className="text-muted-foreground">{s.set_number}</span>
+                          <span className="text-center">
+                            {s.is_bodyweight ? "BW" : s.weight ? `${s.weight} ${s.weight_unit}` : "—"}
+                          </span>
+                          <span className="text-center">{s.reps ?? "—"}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

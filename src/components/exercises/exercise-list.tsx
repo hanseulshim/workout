@@ -251,7 +251,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         name: newName,
         muscle_group: newMuscle,
         equipment_type: newEquipment,
-        log_type: newLogType,
         gif_url: newGifUrl.trim() || null,
       })
       .eq("id", detailExercise.id)
@@ -380,24 +379,10 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             </div>
             <div className="space-y-2">
               <Label>Exercise Type</Label>
-              <Select value={newLogType} onValueChange={(v) => setNewLogType(v as LogType)}>
-                <SelectTrigger><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
-                <SelectContent>
-                  {LOG_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      <div>
-                        <p className="font-medium">{t.label}</p>
-                        <p className="text-xs text-muted-foreground">{t.description}</p>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {newLogType !== detailExercise.log_type && (
-                <p className="text-xs text-muted-foreground">
-                  Only affects new sets — past workout history is unchanged.
-                </p>
-              )}
+              <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm bg-muted/40">
+                <span>{LOG_TYPES.find(t => t.value === detailExercise.log_type)?.label ?? detailExercise.log_type}</span>
+                <span className="text-xs text-muted-foreground">locked</span>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
