@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Play } from "lucide-react";
 
 export default async function RoutinesPage() {
   const supabase = await createClient();
@@ -34,17 +34,30 @@ export default async function RoutinesPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {routines?.map((routine) => (
           <Card key={routine.id}>
-            <Link href={`/routines/${routine.id}`}>
-              <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <p className="font-medium">{routine.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {(routine.routine_exercises as unknown as { count: number }[])?.[0]?.count ?? 0} exercises
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </CardContent>
-            </Link>
+            <CardContent className="flex items-center justify-between py-4 gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{routine.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {(routine.routine_exercises as unknown as { count: number }[])?.[0]?.count ?? 0} exercises
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Link
+                  href={`/routines/${routine.id}`}
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}
+                  title="Edit routine"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href={`/workout/start?routine=${routine.id}`}
+                  className={cn(buttonVariants({ size: "icon" }), "h-8 w-8")}
+                  title="Start workout"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </CardContent>
           </Card>
         ))}
       </div>
