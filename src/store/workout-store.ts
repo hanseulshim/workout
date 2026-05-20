@@ -16,7 +16,9 @@ export interface ActiveSet {
 export interface ActiveExercise {
   exerciseId: string;
   exerciseName: string;
+  gifUrl: string | null;
   logType: LogType;
+  supersetId: string | null;
   sets: ActiveSet[];
 }
 
@@ -46,6 +48,8 @@ interface WorkoutStore {
   startRestTimer: (exerciseId: string, seconds?: number) => void;
   tickRestTimer: () => void;
   stopRestTimer: () => void;
+  linkSuperset: (exerciseId1: string, exerciseId2: string) => void;
+  unlinkSuperset: (exerciseId: string) => void;
 }
 
 function makeSetId() {
@@ -184,6 +188,37 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
       stopRestTimer: () =>
         set({ restTimer: { active: false, seconds: 90, exerciseId: null } }),
+
+      linkSuperset: (exerciseId1, exerciseId2) =>
+        set((state) => {
+          if (!state.activeWorkout) return {};
+          const supersetId = Math.random().toString(36).slice(2);
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: state.activeWorkout.exercises.map((ex) =>
+                ex.exerciseId === exerciseId1 || ex.exerciseId === exerciseId2
+                  ? { ...ex, supersetId }
+                  : ex
+              ),
+            },
+          };
+        }),
+
+      unlinkSuperset: (exerciseId) =>
+        set((state) => {
+          if (!state.activeWorkout) return {};
+          const ex = state.activeWorkout.exercises.find((e) => e.exerciseId === exerciseId);
+          const sid = ex?.supersetId;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: state.activeWorkout.exercises.map((e) =>
+                e.supersetId === sid ? { ...e, supersetId: null } : e
+              ),
+            },
+          };
+        }),
     }),
     { name: "active-workout" }
   )
