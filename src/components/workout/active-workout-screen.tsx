@@ -42,17 +42,26 @@ type ExGroup =
 
 function buildGroups(exercises: ActiveExercise[]): ExGroup[] {
   const groups: ExGroup[] = [];
-  const seen = new Set<string>();
-  for (const ex of exercises) {
-    if (seen.has(ex.exerciseId)) continue;
+  let i = 0;
+  while (i < exercises.length) {
+    const ex = exercises[i];
     if (!ex.supersetId) {
       groups.push({ type: "single", ex });
+      i++;
     } else {
-      const members = exercises.filter((e) => e.supersetId === ex.supersetId);
-      members.forEach((e) => seen.add(e.exerciseId));
-      groups.push({ type: "superset", supersetId: ex.supersetId, exercises: members });
+      const sid = ex.supersetId;
+      const members: ActiveExercise[] = [ex];
+      while (i + 1 < exercises.length && exercises[i + 1].supersetId === sid) {
+        i++;
+        members.push(exercises[i]);
+      }
+      if (members.length === 1) {
+        groups.push({ type: "single", ex });
+      } else {
+        groups.push({ type: "superset", supersetId: sid, exercises: members });
+      }
+      i++;
     }
-    seen.add(ex.exerciseId);
   }
   return groups;
 }
@@ -153,7 +162,7 @@ export function ActiveWorkoutScreen() {
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
+    if (over && active.id !== over.id && activeWorkout) {
       const ids = activeWorkout.exercises.map((e) => e.exerciseId);
       const oldIndex = ids.indexOf(active.id as string);
       const newIndex = ids.indexOf(over.id as string);
@@ -262,6 +271,7 @@ export function ActiveWorkoutScreen() {
                     />
                     {gi < groups.length - 1 && (
                       <SupersetLinkButton
+                        extending={groups[gi + 1].type === "superset"}
                         onClick={() => {
                           const next = groups[gi + 1];
                           const nextId = next.type === "single" ? next.ex.exerciseId : next.exercises[0].exerciseId;
@@ -290,6 +300,7 @@ export function ActiveWorkoutScreen() {
                     </SupersetGroup>
                     {gi < groups.length - 1 && (
                       <SupersetLinkButton
+                        extending
                         onClick={() => {
                           const next = groups[gi + 1];
                           const nextId = next.type === "single" ? next.ex.exerciseId : next.exercises[0].exerciseId;

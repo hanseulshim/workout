@@ -121,15 +121,21 @@ export function ExerciseEditorCard({
 }
 
 /** Button shown between adjacent exercise groups to link as superset */
-export function SupersetLinkButton({ onClick }: { onClick: () => void }) {
+export function SupersetLinkButton({
+  onClick,
+  extending = false,
+}: {
+  onClick: () => void;
+  extending?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-orange-400 transition-colors"
+      className="w-full flex items-center justify-center gap-1.5 py-3 text-xs text-muted-foreground hover:text-orange-400 transition-colors"
     >
-      <Link2 className="h-3 w-3" />
-      Link as Superset
+      <Link2 className="h-3.5 w-3.5" />
+      {extending ? "Add to Superset" : "Link as Superset"}
     </button>
   );
 }

@@ -59,8 +59,10 @@ export function RoutineVolumeChart({ data }: Props) {
               borderRadius: 8,
               fontSize: 12,
             }}
-            formatter={(value: number) =>
-              metric === "volume" ? [`${value.toLocaleString()} lbs`, "Volume"] : [value, "Reps"]
+            formatter={(value) =>
+              metric === "volume"
+                ? [`${Number(value).toLocaleString()} lbs`, "Volume"]
+                : [value, "Reps"]
             }
           />
           <Line
