@@ -19,6 +19,7 @@ export interface ActiveExercise {
   gifUrl: string | null;
   logType: LogType;
   supersetId: string | null;
+  restSeconds: number; // 0 = no auto-rest
   sets: ActiveSet[];
 }
 
@@ -44,6 +45,7 @@ interface WorkoutStore {
   removeSet: (exerciseId: string, setId: string) => void;
   updateSet: (exerciseId: string, setId: string, updates: Partial<ActiveSet>) => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
+  setExerciseRestTime: (exerciseId: string, seconds: number) => void;
   setSessionId: (id: string) => void;
   setDefaultWeightUnit: (unit: WeightUnit) => void;
   startRestTimer: (exerciseId: string, seconds?: number) => void;
@@ -157,29 +159,37 @@ export const useWorkoutStore = create<WorkoutStore>()(
       toggleSetComplete: (exerciseId, setId) => {
         const { activeWorkout, defaultWeightUnit } = get();
         if (!activeWorkout) return;
+        // Check current state before toggling
+        const ex = activeWorkout.exercises.find((e) => e.exerciseId === exerciseId);
+        const wasCompleted = ex?.sets.find((s) => s.id === setId)?.completed ?? false;
         set({
           activeWorkout: {
             ...activeWorkout,
-            exercises: activeWorkout.exercises.map((ex) =>
-              ex.exerciseId !== exerciseId
-                ? ex
-                : {
-                    ...ex,
-                    sets: ex.sets.map((s) =>
-                      s.id === setId ? { ...s, completed: !s.completed } : s
-                    ),
-                  }
+            exercises: activeWorkout.exercises.map((e) =>
+              e.exerciseId !== exerciseId
+                ? e
+                : { ...e, sets: e.sets.map((s) => s.id === setId ? { ...s, completed: !s.completed } : s) }
             ),
           },
         });
-        // Start rest timer when completing a set
-        const ex = get().activeWorkout?.exercises.find((e) => e.exerciseId === exerciseId);
-        const s = ex?.sets.find((s) => s.id === setId);
-        if (s && !s.completed) {
-          get().startRestTimer(exerciseId);
+        // Auto-start rest timer when marking complete (not when uncompleting)
+        if (!wasCompleted && ex && ex.restSeconds > 0) {
+          get().startRestTimer(exerciseId, ex.restSeconds);
         }
         void defaultWeightUnit;
       },
+
+      setExerciseRestTime: (exerciseId, seconds) =>
+        set((state) => ({
+          activeWorkout: state.activeWorkout
+            ? {
+                ...state.activeWorkout,
+                exercises: state.activeWorkout.exercises.map((e) =>
+                  e.exerciseId === exerciseId ? { ...e, restSeconds: seconds } : e
+                ),
+              }
+            : null,
+        })),
 
       setSessionId: (id) =>
         set((state) => ({

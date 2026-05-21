@@ -67,7 +67,8 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
         exerciseName: re.exercises?.name ?? "Unknown",
         gifUrl: re.exercises?.gif_url ?? null,
         logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
-        supersetId: null,
+        supersetId: re.superset_id ?? null,
+        restSeconds: 90,
         sets: (re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }))).map((st, i) => ({
           id: Math.random().toString(36).slice(2),
           setNumber: i + 1,

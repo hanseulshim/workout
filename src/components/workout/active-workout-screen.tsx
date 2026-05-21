@@ -75,6 +75,7 @@ export function ActiveWorkoutScreen() {
     startRestTimer,
     linkSuperset,
     unlinkSuperset,
+    setExerciseRestTime,
   } = useWorkoutStore();
 
   const [finishing, setFinishing] = useState(false);
@@ -132,6 +133,7 @@ export function ActiveWorkoutScreen() {
         gifUrl: exercise.gif_url ?? null,
         logType: exercise.log_type,
         supersetId: null,
+        restSeconds: 90,
         sets: [{
           id: Math.random().toString(36).slice(2),
           setNumber: 1,
@@ -255,6 +257,7 @@ export function ActiveWorkoutScreen() {
                       onUpdateSet={(setId, updates) => updateSet(group.ex.exerciseId, setId, updates)}
                       onToggleComplete={(setId) => toggleSetComplete(group.ex.exerciseId, setId)}
                       onRemoveExercise={() => removeExercise(group.ex.exerciseId)}
+                      onSetRestTime={(s) => setExerciseRestTime(group.ex.exerciseId, s)}
                       onStartRest={(s) => startRestTimer(group.ex.exerciseId, s)}
                     />
                     {gi < groups.length - 1 && (
@@ -279,6 +282,7 @@ export function ActiveWorkoutScreen() {
                           onUpdateSet={(setId, updates) => updateSet(ex.exerciseId, setId, updates)}
                           onToggleComplete={(setId) => toggleSetComplete(ex.exerciseId, setId)}
                           onRemoveExercise={() => removeExercise(ex.exerciseId)}
+                          onSetRestTime={(s) => setExerciseRestTime(ex.exerciseId, s)}
                           onStartRest={(s) => startRestTimer(ex.exerciseId, s)}
                           onUnlinkSuperset={() => unlinkSuperset(ex.exerciseId)}
                         />
@@ -327,6 +331,7 @@ function ActiveExerciseCard({
   onUpdateSet,
   onToggleComplete,
   onRemoveExercise,
+  onSetRestTime,
   onStartRest,
   onUnlinkSuperset,
 }: {
@@ -336,11 +341,17 @@ function ActiveExerciseCard({
   onUpdateSet: (setId: string, updates: Partial<ActiveSet>) => void;
   onToggleComplete: (setId: string) => void;
   onRemoveExercise: () => void;
+  onSetRestTime: (seconds: number) => void;
   onStartRest: (seconds: number) => void;
   onUnlinkSuperset?: () => void;
 }) {
   const [showRestPicker, setShowRestPicker] = useState(false);
   const completedCount = exercise.sets.filter((s) => s.completed).length;
+
+  function formatRest(s: number) {
+    if (s === 0) return "Off";
+    return s < 60 ? `${s}s` : s % 60 === 0 ? `${s / 60}m` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
 
   return (
     <ExerciseEditorCard
@@ -354,27 +365,44 @@ function ActiveExerciseCard({
       onUnlinkSuperset={onUnlinkSuperset}
       footer={
         showRestPicker ? (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs text-muted-foreground">Rest:</span>
-            {REST_PRESETS.map((p) => (
-              <button
-                key={p.seconds}
-                type="button"
-                onClick={() => { onStartRest(p.seconds); setShowRestPicker(false); }}
-                className="text-xs px-2 py-1 rounded-md border hover:bg-muted transition-colors"
-              >
-                {p.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => setShowRestPicker(false)} className="text-xs text-muted-foreground ml-auto">Cancel</button>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-muted-foreground shrink-0">Rest timer:</span>
+              {[{ label: "Off", seconds: 0 }, ...REST_PRESETS].map((p) => (
+                <button
+                  key={p.seconds}
+                  type="button"
+                  onClick={() => {
+                    onSetRestTime(p.seconds);
+                    if (p.seconds > 0) onStartRest(p.seconds);
+                    setShowRestPicker(false);
+                  }}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-md border transition-colors",
+                    exercise.restSeconds === p.seconds
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "hover:bg-muted"
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+              <button type="button" onClick={() => setShowRestPicker(false)} className="text-xs text-muted-foreground ml-auto">Done</button>
+            </div>
           </div>
         ) : (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1" onClick={onAddSet}>
               <Plus className="h-3.5 w-3.5 mr-1" />Add Set
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowRestPicker(true)}>
-              <Timer className="h-3.5 w-3.5 mr-1" />Rest
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRestPicker(true)}
+              className={cn(exercise.restSeconds > 0 && "text-primary border-primary/50")}
+            >
+              <Timer className="h-3.5 w-3.5 mr-1" />
+              {formatRest(exercise.restSeconds)}
             </Button>
             {exercise.sets.length > 1 && (
               <Button variant="ghost" size="sm" onClick={() => onRemoveSet(exercise.sets[exercise.sets.length - 1].id)}>
