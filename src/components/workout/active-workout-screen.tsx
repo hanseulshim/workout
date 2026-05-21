@@ -189,6 +189,25 @@ export function ActiveWorkoutScreen() {
       }))
     );
     if (setsToInsert.length > 0) await supabase.from("workout_sets").insert(setsToInsert);
+
+    // Update routine_exercises set_targets so the editor reflects latest actual reps
+    if (activeWorkout.routineId) {
+      await Promise.all(
+        activeWorkout.exercises.map(async (ex) => {
+          const completedSets = ex.sets.filter((s) => s.completed);
+          if (completedSets.length === 0) return;
+          const newTargets = ex.sets.map((s) => ({
+            reps: s.completed && s.reps ? s.reps : (s.reps ?? ""),
+          }));
+          await supabase
+            .from("routine_exercises")
+            .update({ set_targets: newTargets, default_sets: newTargets.length })
+            .eq("routine_id", activeWorkout.routineId!)
+            .eq("exercise_id", ex.exerciseId);
+        })
+      );
+    }
+
     endWorkout();
     toast.success("Workout saved! 💪");
     router.push("/history");
