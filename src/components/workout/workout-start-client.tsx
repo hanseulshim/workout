@@ -11,6 +11,15 @@ import { toast } from "sonner";
 import { Play, Dumbbell, Loader2 } from "lucide-react";
 import type { LogType } from "@/types/database";
 
+interface LastSet {
+  exercise_id: string;
+  set_number: number;
+  weight: number | null;
+  reps: number | null;
+  weight_unit: string;
+  duration_seconds: number | null;
+}
+
 interface Routine {
   id: string;
   name: string;
@@ -23,6 +32,7 @@ interface RoutineWithExercises extends Routine {
     default_sets: number;
     default_reps: number | null;
     set_targets: Array<{ reps: string }> | null;
+    superset_id: string | null;
     exercises: { id: string; name: string; log_type: string; gif_url: string | null } | null;
   }>;
 }
@@ -31,9 +41,10 @@ interface Props {
   routines: Routine[];
   preselectedRoutine: RoutineWithExercises | null;
   userId: string;
+  lastSets: LastSet[];
 }
 
-export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Props) {
+export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastSets }: Props) {
   const router = useRouter();
   const { startWorkout, defaultWeightUnit } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState(
@@ -62,24 +73,36 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
 
     const exercises = (routine?.routine_exercises ?? [])
       .sort((a, b) => a.position - b.position)
-      .map((re) => ({
-        exerciseId: re.exercise_id,
-        exerciseName: re.exercises?.name ?? "Unknown",
-        gifUrl: re.exercises?.gif_url ?? null,
-        logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
-        supersetId: re.superset_id ?? null,
-        restSeconds: 90,
-        sets: (re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }))).map((st, i) => ({
-          id: Math.random().toString(36).slice(2),
-          setNumber: i + 1,
-          reps: st.reps,
-          weight: "",
-          weightUnit: defaultWeightUnit,
-          isBodyweight: false,
-          durationSeconds: "",
-          completed: false,
-        })),
-      }));
+      .map((re) => {
+        // Build a map of set_number -> last session values for this exercise
+        const prevSets = lastSets
+          .filter((s) => s.exercise_id === re.exercise_id)
+          .reduce<Record<number, LastSet>>((acc, s) => { acc[s.set_number] = s; return acc; }, {});
+
+        const setTemplates = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }));
+
+        return {
+          exerciseId: re.exercise_id,
+          exerciseName: re.exercises?.name ?? "Unknown",
+          gifUrl: re.exercises?.gif_url ?? null,
+          logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
+          supersetId: re.superset_id ?? null,
+          restSeconds: 90,
+          sets: setTemplates.map((st, i) => {
+            const prev = prevSets[i + 1];
+            return {
+              id: Math.random().toString(36).slice(2),
+              setNumber: i + 1,
+              reps: prev?.reps?.toString() ?? st.reps,
+              weight: prev?.weight?.toString() ?? "",
+              weightUnit: (prev?.weight_unit ?? defaultWeightUnit) as typeof defaultWeightUnit,
+              isBodyweight: false,
+              durationSeconds: prev?.duration_seconds?.toString() ?? "",
+              completed: false,
+            };
+          }),
+        };
+      });
 
     startWorkout({
       sessionId: session.id,

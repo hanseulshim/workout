@@ -215,12 +215,18 @@ export const useWorkoutStore = create<WorkoutStore>()(
       linkSuperset: (exerciseId1, exerciseId2) =>
         set((state) => {
           if (!state.activeWorkout) return {};
-          const supersetId = Math.random().toString(36).slice(2);
+          const ex1 = state.activeWorkout.exercises.find((e) => e.exerciseId === exerciseId1);
+          const ex2 = state.activeWorkout.exercises.find((e) => e.exerciseId === exerciseId2);
+          // Inherit an existing supersetId, or create a new one
+          const supersetId = ex1?.supersetId ?? ex2?.supersetId ?? Math.random().toString(36).slice(2);
           return {
             activeWorkout: {
               ...state.activeWorkout,
               exercises: state.activeWorkout.exercises.map((ex) =>
-                ex.exerciseId === exerciseId1 || ex.exerciseId === exerciseId2
+                ex.exerciseId === exerciseId1 ||
+                ex.exerciseId === exerciseId2 ||
+                (ex1?.supersetId && ex.supersetId === ex1.supersetId) ||
+                (ex2?.supersetId && ex.supersetId === ex2.supersetId)
                   ? { ...ex, supersetId }
                   : ex
               ),

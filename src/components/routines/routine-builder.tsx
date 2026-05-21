@@ -170,12 +170,19 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   }
 
   function linkSuperset(id1: string, id2: string) {
-    const supersetId = Math.random().toString(36).slice(2);
-    setSelected((prev) =>
-      prev.map((ex) =>
-        ex.exerciseId === id1 || ex.exerciseId === id2 ? { ...ex, supersetId } : ex
-      )
-    );
+    setSelected((prev) => {
+      const ex1 = prev.find((e) => e.exerciseId === id1);
+      const ex2 = prev.find((e) => e.exerciseId === id2);
+      const supersetId = ex1?.supersetId ?? ex2?.supersetId ?? Math.random().toString(36).slice(2);
+      return prev.map((ex) =>
+        ex.exerciseId === id1 ||
+        ex.exerciseId === id2 ||
+        (ex1?.supersetId && ex.supersetId === ex1.supersetId) ||
+        (ex2?.supersetId && ex.supersetId === ex2.supersetId)
+          ? { ...ex, supersetId }
+          : ex
+      );
+    });
   }
 
   function unlinkSuperset(exerciseId: string) {
@@ -183,10 +190,11 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
       const target = prev.find((e) => e.exerciseId === exerciseId);
       if (!target?.supersetId) return prev;
       const sid = target.supersetId;
-      const membersWithSid = prev.filter((e) => e.supersetId === sid);
+      const members = prev.filter((e) => e.supersetId === sid);
+      // If only 2 remain after removal, clear the whole superset
       return prev.map((ex) =>
         ex.supersetId === sid
-          ? { ...ex, supersetId: membersWithSid.length <= 2 ? null : ex.exerciseId === exerciseId ? null : ex.supersetId }
+          ? { ...ex, supersetId: members.length <= 2 ? null : ex.exerciseId === exerciseId ? null : ex.supersetId }
           : ex
       );
     });
