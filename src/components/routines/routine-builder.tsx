@@ -3,15 +3,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { ExerciseList } from "@/components/exercises/exercise-list";
+import { ExerciseEditorCard, SupersetLinkButton, SupersetGroup } from "@/components/workout/exercise-editor-card";
 import type { Exercise } from "@/types/database";
 
 interface SetTarget {
@@ -24,6 +38,7 @@ interface RoutineExerciseRow {
   default_sets: number;
   default_reps: number | null;
   set_targets: SetTarget[] | null;
+  superset_id: string | null;
   exercises: Exercise | null;
 }
 
@@ -36,7 +51,9 @@ interface ExistingRoutine {
 interface SelectedExercise {
   exerciseId: string;
   name: string;
+  gifUrl: string | null;
   sets: SetTarget[];
+  supersetId: string | null;
 }
 
 interface Props {
@@ -49,6 +66,28 @@ function defaultSets(count: number, defaultReps?: number | null): SetTarget[] {
   return Array.from({ length: count }, () => ({ reps: defaultReps?.toString() ?? "" }));
 }
 
+// Group consecutive exercises by supersetId (null = single)
+type ExGroup =
+  | { type: "single"; ex: SelectedExercise }
+  | { type: "superset"; supersetId: string; exercises: SelectedExercise[] };
+
+function buildGroups(exercises: SelectedExercise[]): ExGroup[] {
+  const groups: ExGroup[] = [];
+  const seen = new Set<string>();
+  for (const ex of exercises) {
+    if (seen.has(ex.exerciseId)) continue;
+    if (!ex.supersetId) {
+      groups.push({ type: "single", ex });
+    } else {
+      const members = exercises.filter((e) => e.supersetId === ex.supersetId);
+      members.forEach((e) => seen.add(e.exerciseId));
+      groups.push({ type: "superset", supersetId: ex.supersetId, exercises: members });
+    }
+    seen.add(ex.exerciseId);
+  }
+  return groups;
+}
+
 export function RoutineBuilder({ exercises, userId, routine }: Props) {
   const router = useRouter();
   const [name, setName] = useState(routine?.name ?? "");
@@ -58,11 +97,29 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
       .map((re) => ({
         exerciseId: re.exercise_id,
         name: re.exercises?.name ?? "Unknown",
+        gifUrl: re.exercises?.gif_url ?? null,
         sets: re.set_targets ?? defaultSets(re.default_sets, re.default_reps),
+        supersetId: re.superset_id ?? null,
       })) ?? []
   );
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setSelected((prev) => {
+        const oldIndex = prev.findIndex((e) => e.exerciseId === active.id);
+        const newIndex = prev.findIndex((e) => e.exerciseId === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  }
 
   function handleAddExercise(newExercises: Exercise[]) {
     const toAdd = newExercises.filter((e) => !selected.find((s) => s.exerciseId === e.id));
@@ -70,7 +127,13 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
     if (toAdd.length === 0) return;
     setSelected((prev) => [
       ...prev,
-      ...toAdd.map((e) => ({ exerciseId: e.id, name: e.name, sets: defaultSets(3) })),
+      ...toAdd.map((e) => ({
+        exerciseId: e.id,
+        name: e.name,
+        gifUrl: e.gif_url ?? null,
+        sets: defaultSets(3),
+        supersetId: null,
+      })),
     ]);
     setAddOpen(false);
   }
@@ -78,28 +141,55 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   function updateSet(exIdx: number, setIdx: number, reps: string) {
     setSelected((prev) =>
       prev.map((ex, i) =>
-        i !== exIdx
+        i !== exIdx ? ex : { ...ex, sets: ex.sets.map((s, j) => (j === setIdx ? { reps } : s)) }
+      )
+    );
+  }
+
+  function addSet(exerciseId: string) {
+    setSelected((prev) =>
+      prev.map((ex) =>
+        ex.exerciseId !== exerciseId
           ? ex
-          : { ...ex, sets: ex.sets.map((s, j) => (j === setIdx ? { reps } : s)) }
+          : { ...ex, sets: [...ex.sets, { reps: ex.sets[ex.sets.length - 1]?.reps ?? "" }] }
       )
     );
   }
 
-  function addSet(exIdx: number) {
+  function removeSet(exerciseId: string, setIdx: number) {
     setSelected((prev) =>
-      prev.map((ex, i) =>
-        i !== exIdx ? ex : { ...ex, sets: [...ex.sets, { reps: ex.sets[ex.sets.length - 1]?.reps ?? "" }] }
-      )
-    );
-  }
-
-  function removeSet(exIdx: number, setIdx: number) {
-    setSelected((prev) =>
-      prev.map((ex, i) => {
-        if (i !== exIdx || ex.sets.length <= 1) return ex;
+      prev.map((ex) => {
+        if (ex.exerciseId !== exerciseId || ex.sets.length <= 1) return ex;
         return { ...ex, sets: ex.sets.filter((_, j) => j !== setIdx) };
       })
     );
+  }
+
+  function removeExercise(exerciseId: string) {
+    setSelected((prev) => prev.filter((e) => e.exerciseId !== exerciseId));
+  }
+
+  function linkSuperset(id1: string, id2: string) {
+    const supersetId = Math.random().toString(36).slice(2);
+    setSelected((prev) =>
+      prev.map((ex) =>
+        ex.exerciseId === id1 || ex.exerciseId === id2 ? { ...ex, supersetId } : ex
+      )
+    );
+  }
+
+  function unlinkSuperset(exerciseId: string) {
+    setSelected((prev) => {
+      const target = prev.find((e) => e.exerciseId === exerciseId);
+      if (!target?.supersetId) return prev;
+      const sid = target.supersetId;
+      const membersWithSid = prev.filter((e) => e.supersetId === sid);
+      return prev.map((ex) =>
+        ex.supersetId === sid
+          ? { ...ex, supersetId: membersWithSid.length <= 2 ? null : ex.exerciseId === exerciseId ? null : ex.supersetId }
+          : ex
+      );
+    });
   }
 
   async function handleSave() {
@@ -114,6 +204,7 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
       default_sets: ex.sets.length,
       default_reps: ex.sets[0]?.reps ? parseInt(ex.sets[0].reps) : null,
       set_targets: ex.sets,
+      superset_id: ex.supersetId,
     }));
 
     if (routine) {
@@ -136,6 +227,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
     setSaving(false);
   }
 
+  const groups = buildGroups(selected);
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -143,63 +236,65 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push Day" />
       </div>
 
-      <div className="space-y-3">
-        {selected.map((ex, exIdx) => (
-          <Card key={ex.exerciseId}>
-            <CardContent className="py-3 space-y-3">
-              {/* Exercise header */}
-              <div className="flex items-center gap-2">
-                <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="font-medium text-sm flex-1">{ex.name}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => setSelected((prev) => prev.filter((_, i) => i !== exIdx))}
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </div>
-
-              {/* Set rows */}
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-[2rem_1fr_2rem] gap-2 px-1">
-                  <span className="text-xs text-muted-foreground text-center">Set</span>
-                  <span className="text-xs text-muted-foreground">Target Reps</span>
-                </div>
-                {ex.sets.map((set, setIdx) => (
-                  <div key={setIdx} className="grid grid-cols-[2rem_1fr_2rem] gap-2 items-center">
-                    <span className="text-xs font-medium text-center text-muted-foreground">{setIdx + 1}</span>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="—"
-                      value={set.reps}
-                      onChange={(e) => updateSet(exIdx, setIdx, e.target.value)}
-                      className="h-8 text-sm"
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={selected.map((e) => e.exerciseId)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {groups.map((group, gi) => (
+              <div key={group.type === "single" ? group.ex.exerciseId : group.supersetId}>
+                {group.type === "single" ? (
+                  <div className="space-y-1">
+                    <RoutineExerciseCard
+                      ex={group.ex}
+                      exIdx={selected.findIndex((e) => e.exerciseId === group.ex.exerciseId)}
+                      onUpdate={updateSet}
+                      onAddSet={addSet}
+                      onRemoveSet={removeSet}
+                      onRemove={removeExercise}
+                      onUnlink={unlinkSuperset}
                     />
-                    <button
-                      onClick={() => removeSet(exIdx, setIdx)}
-                      disabled={ex.sets.length <= 1}
-                      className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                    {gi < groups.length - 1 && (
+                      <SupersetLinkButton
+                        onClick={() => {
+                          const next = groups[gi + 1];
+                          const nextId = next.type === "single" ? next.ex.exerciseId : next.exercises[0].exerciseId;
+                          linkSuperset(group.ex.exerciseId, nextId);
+                        }}
+                      />
+                    )}
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-1">
+                    <SupersetGroup>
+                      {group.exercises.map((ex) => (
+                        <RoutineExerciseCard
+                          key={ex.exerciseId}
+                          ex={ex}
+                          exIdx={selected.findIndex((e) => e.exerciseId === ex.exerciseId)}
+                          onUpdate={updateSet}
+                          onAddSet={addSet}
+                          onRemoveSet={removeSet}
+                          onRemove={removeExercise}
+                          onUnlink={unlinkSuperset}
+                        />
+                      ))}
+                    </SupersetGroup>
+                    {gi < groups.length - 1 && (
+                      <SupersetLinkButton
+                        onClick={() => {
+                          const next = groups[gi + 1];
+                          const nextId = next.type === "single" ? next.ex.exerciseId : next.exercises[0].exerciseId;
+                          const lastInGroup = group.exercises[group.exercises.length - 1].exerciseId;
+                          linkSuperset(lastInGroup, nextId);
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Add set */}
-              <button
-                onClick={() => addSet(exIdx)}
-                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1 border border-dashed rounded-md"
-              >
-                + Add Set
-              </button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       <Sheet open={addOpen} onOpenChange={setAddOpen}>
         <SheetTrigger className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
@@ -230,5 +325,75 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         </Button>
       </div>
     </div>
+  );
+}
+
+function RoutineExerciseCard({
+  ex,
+  exIdx,
+  onUpdate,
+  onAddSet,
+  onRemoveSet,
+  onRemove,
+  onUnlink,
+}: {
+  ex: SelectedExercise;
+  exIdx: number;
+  onUpdate: (exIdx: number, setIdx: number, reps: string) => void;
+  onAddSet: (id: string) => void;
+  onRemoveSet: (id: string, setIdx: number) => void;
+  onRemove: (id: string) => void;
+  onUnlink: (id: string) => void;
+}) {
+  return (
+    <ExerciseEditorCard
+      id={ex.exerciseId}
+      name={ex.name}
+      gifUrl={ex.gifUrl}
+      supersetId={ex.supersetId}
+      setsCount={ex.sets.length}
+      onRemove={() => onRemove(ex.exerciseId)}
+      onUnlinkSuperset={ex.supersetId ? () => onUnlink(ex.exerciseId) : undefined}
+      footer={
+        <div className="flex gap-2">
+          <button
+            onClick={() => onAddSet(ex.exerciseId)}
+            className="flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-dashed rounded-md"
+          >
+            + Add Set
+          </button>
+          {ex.sets.length > 1 && (
+            <button
+              onClick={() => onRemoveSet(ex.exerciseId, ex.sets.length - 1)}
+              className="px-3 py-1.5 border border-dashed rounded-md text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      }
+    >
+      {/* Set rows */}
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-[2rem_1fr_2rem] gap-2 px-1">
+          <span className="text-xs text-muted-foreground text-center">Set</span>
+          <span className="text-xs text-muted-foreground">Target Reps</span>
+        </div>
+        {ex.sets.map((set, setIdx) => (
+          <div key={setIdx} className="grid grid-cols-[2rem_1fr_2rem] gap-2 items-center">
+            <span className="text-xs font-medium text-center text-muted-foreground">{setIdx + 1}</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              placeholder="—"
+              value={set.reps}
+              onChange={(e) => onUpdate(exIdx, setIdx, e.target.value)}
+              className="h-8 text-sm"
+            />
+            <span className="w-6" />
+          </div>
+        ))}
+      </div>
+    </ExerciseEditorCard>
   );
 }

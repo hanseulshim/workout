@@ -39,6 +39,7 @@ interface WorkoutStore {
   endWorkout: () => void;
   addExercise: (exercise: ActiveExercise) => void;
   removeExercise: (exerciseId: string) => void;
+  reorderExercises: (orderedIds: string[]) => void;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateSet: (exerciseId: string, setId: string, updates: Partial<ActiveSet>) => void;
@@ -82,6 +83,18 @@ export const useWorkoutStore = create<WorkoutStore>()(
               }
             : null,
         })),
+
+      reorderExercises: (orderedIds) =>
+        set((state) => {
+          if (!state.activeWorkout) return {};
+          const map = new Map(state.activeWorkout.exercises.map((e) => [e.exerciseId, e]));
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: orderedIds.map((id) => map.get(id)!).filter(Boolean),
+            },
+          };
+        }),
 
       addSet: (exerciseId) =>
         set((state) => {

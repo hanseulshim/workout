@@ -2,18 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { useWorkoutStore, type ActiveExercise, type ActiveSet } from "@/store/workout-store";
 import { createClient } from "@/lib/supabase/client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Check, Plus, Trash2, Timer, X, ChevronDown, Link2, Link2Off } from "lucide-react";
-import Image from "next/image";
+import { Check, Plus, Trash2, Timer, X } from "lucide-react";
 import { ExerciseList } from "@/components/exercises/exercise-list";
+import { ExerciseEditorCard, SupersetLinkButton, SupersetGroup } from "@/components/workout/exercise-editor-card";
 import type { Exercise, LogType } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -26,6 +35,28 @@ const REST_PRESETS = [
   { label: "3m", seconds: 180 },
 ];
 
+// Group exercises by supersetId
+type ExGroup =
+  | { type: "single"; ex: ActiveExercise }
+  | { type: "superset"; supersetId: string; exercises: ActiveExercise[] };
+
+function buildGroups(exercises: ActiveExercise[]): ExGroup[] {
+  const groups: ExGroup[] = [];
+  const seen = new Set<string>();
+  for (const ex of exercises) {
+    if (seen.has(ex.exerciseId)) continue;
+    if (!ex.supersetId) {
+      groups.push({ type: "single", ex });
+    } else {
+      const members = exercises.filter((e) => e.supersetId === ex.supersetId);
+      members.forEach((e) => seen.add(e.exerciseId));
+      groups.push({ type: "superset", supersetId: ex.supersetId, exercises: members });
+    }
+    seen.add(ex.exerciseId);
+  }
+  return groups;
+}
+
 export function ActiveWorkoutScreen() {
   const router = useRouter();
   const {
@@ -36,6 +67,7 @@ export function ActiveWorkoutScreen() {
     removeSet,
     updateSet,
     toggleSetComplete,
+    reorderExercises,
     endWorkout,
     restTimer,
     tickRestTimer,
@@ -49,6 +81,11 @@ export function ActiveWorkoutScreen() {
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
 
   useEffect(() => {
     async function load() {
@@ -112,6 +149,16 @@ export function ActiveWorkoutScreen() {
     else toast.success(`${exList.length} exercises added`);
   }
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const ids = activeWorkout.exercises.map((e) => e.exerciseId);
+      const oldIndex = ids.indexOf(active.id as string);
+      const newIndex = ids.indexOf(over.id as string);
+      reorderExercises(arrayMove(ids, oldIndex, newIndex));
+    }
+  }
+
   async function handleFinish() {
     if (!activeWorkout) return;
     setFinishing(true);
@@ -144,21 +191,7 @@ export function ActiveWorkoutScreen() {
     router.push("/");
   }
 
-  // Group consecutive exercises by supersetId
-  type ExGroup = { type: "single"; ex: ActiveExercise } | { type: "superset"; supersetId: string; exercises: ActiveExercise[] };
-  const groups: ExGroup[] = [];
-  const seen = new Set<string>();
-  for (const ex of activeWorkout.exercises) {
-    if (seen.has(ex.exerciseId)) continue;
-    if (!ex.supersetId) {
-      groups.push({ type: "single", ex });
-    } else {
-      const members = activeWorkout.exercises.filter((e) => e.supersetId === ex.supersetId);
-      members.forEach((e) => seen.add(e.exerciseId));
-      groups.push({ type: "superset", supersetId: ex.supersetId, exercises: members });
-    }
-    seen.add(ex.exerciseId);
-  }
+  const groups = buildGroups(activeWorkout.exercises);
 
   return (
     <div className="space-y-3 pb-4">
@@ -205,65 +238,69 @@ export function ActiveWorkoutScreen() {
       )}
 
       {/* Exercise groups */}
-      {groups.map((group, i) => (
-        <div key={group.type === "single" ? group.ex.exerciseId : group.supersetId}>
-          {group.type === "single" ? (
-            <div className="space-y-2">
-              <ExerciseCard
-                exercise={group.ex}
-                onAddSet={() => addSet(group.ex.exerciseId)}
-                onRemoveSet={(setId) => removeSet(group.ex.exerciseId, setId)}
-                onUpdateSet={(setId, updates) => updateSet(group.ex.exerciseId, setId, updates)}
-                onToggleComplete={(setId) => toggleSetComplete(group.ex.exerciseId, setId)}
-                onRemoveExercise={() => removeExercise(group.ex.exerciseId)}
-                onStartRest={(s) => startRestTimer(group.ex.exerciseId, s)}
-              />
-              {/* Superset link button between this and next exercise */}
-              {i < groups.length - 1 && (
-                <SupersetButton
-                  onClick={() => {
-                    const nextGroup = groups[i + 1];
-                    const nextId = nextGroup.type === "single" ? nextGroup.ex.exerciseId : nextGroup.exercises[0].exerciseId;
-                    linkSuperset(group.ex.exerciseId, nextId);
-                  }}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="relative pl-3 border-l-2 border-orange-400 space-y-2">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Badge className="text-xs bg-orange-400 text-white">Superset</Badge>
-                </div>
-                {group.exercises.map((ex) => (
-                  <ExerciseCard
-                    key={ex.exerciseId}
-                    exercise={ex}
-                    onAddSet={() => addSet(ex.exerciseId)}
-                    onRemoveSet={(setId) => removeSet(ex.exerciseId, setId)}
-                    onUpdateSet={(setId, updates) => updateSet(ex.exerciseId, setId, updates)}
-                    onToggleComplete={(setId) => toggleSetComplete(ex.exerciseId, setId)}
-                    onRemoveExercise={() => removeExercise(ex.exerciseId)}
-                    onStartRest={(s) => startRestTimer(ex.exerciseId, s)}
-                    supersetId={group.supersetId}
-                    onUnlinkSuperset={() => unlinkSuperset(ex.exerciseId)}
-                  />
-                ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={activeWorkout.exercises.map((e) => e.exerciseId)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2">
+            {groups.map((group, gi) => (
+              <div key={group.type === "single" ? group.ex.exerciseId : group.supersetId}>
+                {group.type === "single" ? (
+                  <div className="space-y-1">
+                    <ActiveExerciseCard
+                      exercise={group.ex}
+                      onAddSet={() => addSet(group.ex.exerciseId)}
+                      onRemoveSet={(setId) => removeSet(group.ex.exerciseId, setId)}
+                      onUpdateSet={(setId, updates) => updateSet(group.ex.exerciseId, setId, updates)}
+                      onToggleComplete={(setId) => toggleSetComplete(group.ex.exerciseId, setId)}
+                      onRemoveExercise={() => removeExercise(group.ex.exerciseId)}
+                      onStartRest={(s) => startRestTimer(group.ex.exerciseId, s)}
+                    />
+                    {gi < groups.length - 1 && (
+                      <SupersetLinkButton
+                        onClick={() => {
+                          const next = groups[gi + 1];
+                          const nextId = next.type === "single" ? next.ex.exerciseId : next.exercises[0].exerciseId;
+                          linkSuperset(group.ex.exerciseId, nextId);
+                        }}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <SupersetGroup>
+                      {group.exercises.map((ex) => (
+                        <ActiveExerciseCard
+                          key={ex.exerciseId}
+                          exercise={ex}
+                          onAddSet={() => addSet(ex.exerciseId)}
+                          onRemoveSet={(setId) => removeSet(ex.exerciseId, setId)}
+                          onUpdateSet={(setId, updates) => updateSet(ex.exerciseId, setId, updates)}
+                          onToggleComplete={(setId) => toggleSetComplete(ex.exerciseId, setId)}
+                          onRemoveExercise={() => removeExercise(ex.exerciseId)}
+                          onStartRest={(s) => startRestTimer(ex.exerciseId, s)}
+                          onUnlinkSuperset={() => unlinkSuperset(ex.exerciseId)}
+                        />
+                      ))}
+                    </SupersetGroup>
+                    {gi < groups.length - 1 && (
+                      <SupersetLinkButton
+                        onClick={() => {
+                          const next = groups[gi + 1];
+                          const nextId = next.type === "single" ? next.ex.exerciseId : next.exercises[0].exerciseId;
+                          const last = group.exercises[group.exercises.length - 1].exerciseId;
+                          linkSuperset(last, nextId);
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
-              {i < groups.length - 1 && (
-                <SupersetButton
-                  onClick={() => {
-                    const nextGroup = groups[i + 1];
-                    const nextId = nextGroup.type === "single" ? nextGroup.ex.exerciseId : nextGroup.exercises[0].exerciseId;
-                    const firstId = group.exercises[group.exercises.length - 1].exerciseId;
-                    linkSuperset(firstId, nextId);
-                  }}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      ))}
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Add exercise */}
       <Sheet open={addExerciseOpen} onOpenChange={setAddExerciseOpen}>
@@ -283,20 +320,7 @@ export function ActiveWorkoutScreen() {
   );
 }
 
-function SupersetButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground hover:text-orange-400 transition-colors"
-    >
-      <Link2 className="h-3 w-3" />
-      Link as Superset
-    </button>
-  );
-}
-
-function ExerciseCard({
+function ActiveExerciseCard({
   exercise,
   onAddSet,
   onRemoveSet,
@@ -304,7 +328,6 @@ function ExerciseCard({
   onToggleComplete,
   onRemoveExercise,
   onStartRest,
-  supersetId,
   onUnlinkSuperset,
 }: {
   exercise: ActiveExercise;
@@ -314,89 +337,65 @@ function ExerciseCard({
   onToggleComplete: (setId: string) => void;
   onRemoveExercise: () => void;
   onStartRest: (seconds: number) => void;
-  supersetId?: string;
   onUnlinkSuperset?: () => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const [showRestPicker, setShowRestPicker] = useState(false);
   const completedCount = exercise.sets.filter((s) => s.completed).length;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <button onClick={() => setCollapsed((v) => !v)} className="flex items-center gap-2 flex-1 min-w-0">
-            <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", collapsed && "-rotate-90")} />
-            {exercise.gifUrl && (
-              <div className="shrink-0 w-8 h-8 rounded overflow-hidden bg-muted">
-                <Image src={exercise.gifUrl} alt={exercise.exerciseName} width={32} height={32} unoptimized className="object-cover w-full h-full" />
-              </div>
-            )}
-            <CardTitle className="text-base truncate">{exercise.exerciseName}</CardTitle>
-            {completedCount > 0 && (
-              <Badge variant="secondary" className="text-xs shrink-0">{completedCount}/{exercise.sets.length}</Badge>
-            )}
-          </button>
-          <div className="flex items-center gap-1 shrink-0">
-            {supersetId && onUnlinkSuperset && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onUnlinkSuperset} title="Remove from superset">
-                <Link2Off className="h-3.5 w-3.5 text-orange-400" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemoveExercise}>
-              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
+    <ExerciseEditorCard
+      id={exercise.exerciseId}
+      name={exercise.exerciseName}
+      gifUrl={exercise.gifUrl}
+      supersetId={exercise.supersetId}
+      setsCount={exercise.sets.length}
+      completedCount={completedCount}
+      onRemove={onRemoveExercise}
+      onUnlinkSuperset={onUnlinkSuperset}
+      footer={
+        showRestPicker ? (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">Rest:</span>
+            {REST_PRESETS.map((p) => (
+              <button
+                key={p.seconds}
+                type="button"
+                onClick={() => { onStartRest(p.seconds); setShowRestPicker(false); }}
+                className="text-xs px-2 py-1 rounded-md border hover:bg-muted transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setShowRestPicker(false)} className="text-xs text-muted-foreground ml-auto">Cancel</button>
           </div>
-        </div>
-      </CardHeader>
-
-      {!collapsed && (
-        <CardContent className="space-y-2 pt-0">
-          <SetColumnHeaders logType={exercise.logType} />
-          {exercise.sets.map((s) => (
-            <SetRow
-              key={s.id}
-              set={s}
-              logType={exercise.logType}
-              onUpdate={(updates) => onUpdateSet(s.id, updates)}
-              onToggleComplete={() => onToggleComplete(s.id)}
-            />
-          ))}
-
-          {/* Rest timer presets */}
-          {showRestPicker ? (
-            <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-              <span className="text-xs text-muted-foreground">Rest:</span>
-              {REST_PRESETS.map((p) => (
-                <button
-                  key={p.seconds}
-                  type="button"
-                  onClick={() => { onStartRest(p.seconds); setShowRestPicker(false); }}
-                  className="text-xs px-2 py-1 rounded-md border hover:bg-muted transition-colors"
-                >
-                  {p.label}
-                </button>
-              ))}
-              <button type="button" onClick={() => setShowRestPicker(false)} className="text-xs text-muted-foreground ml-auto">Cancel</button>
-            </div>
-          ) : (
-            <div className="flex gap-2 pt-1">
-              <Button variant="outline" size="sm" className="flex-1" onClick={onAddSet}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Add Set
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={onAddSet}>
+              <Plus className="h-3.5 w-3.5 mr-1" />Add Set
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowRestPicker(true)}>
+              <Timer className="h-3.5 w-3.5 mr-1" />Rest
+            </Button>
+            {exercise.sets.length > 1 && (
+              <Button variant="ghost" size="sm" onClick={() => onRemoveSet(exercise.sets[exercise.sets.length - 1].id)}>
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowRestPicker(true)}>
-                <Timer className="h-3.5 w-3.5 mr-1" />Rest
-              </Button>
-              {exercise.sets.length > 1 && (
-                <Button variant="ghost" size="sm" onClick={() => onRemoveSet(exercise.sets[exercise.sets.length - 1].id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      )}
-    </Card>
+            )}
+          </div>
+        )
+      }
+    >
+      <SetColumnHeaders logType={exercise.logType} />
+      {exercise.sets.map((s) => (
+        <SetRow
+          key={s.id}
+          set={s}
+          logType={exercise.logType}
+          onUpdate={(updates) => onUpdateSet(s.id, updates)}
+          onToggleComplete={() => onToggleComplete(s.id)}
+        />
+      ))}
+    </ExerciseEditorCard>
   );
 }
 

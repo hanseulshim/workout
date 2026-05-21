@@ -99,6 +99,7 @@ export interface Database {
           default_reps: number | null;
           default_weight: number | null;
           set_targets: Array<{ reps: string }> | null;
+          superset_id: string | null;
         };
         Insert: {
           id?: string;
@@ -109,6 +110,7 @@ export interface Database {
           default_reps?: number | null;
           default_weight?: number | null;
           set_targets?: Array<{ reps: string }> | null;
+          superset_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["routine_exercises"]["Insert"]>;
       };
