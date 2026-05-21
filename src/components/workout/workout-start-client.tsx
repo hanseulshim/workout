@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useWorkoutStore } from "@/store/workout-store";
@@ -92,9 +92,12 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
     router.push(`/workout/${session.id}`);
   }
 
+  const startedRef = useRef(false);
+
   // Auto-start immediately when a routine is preselected
   useEffect(() => {
-    if (preselectedRoutine) {
+    if (preselectedRoutine && !startedRef.current) {
+      startedRef.current = true;
       handleStart(preselectedRoutine, preselectedRoutine.name);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

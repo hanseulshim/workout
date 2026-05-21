@@ -17,18 +17,23 @@ export default async function HistoryPage() {
     .order("started_at", { ascending: false })
     .limit(50);
 
+  // Filter out any sessions with 0 sets (safety net for orphaned sessions)
+  const validSessions = (sessions ?? []).filter(
+    (s) => ((s.workout_sets as unknown as { count: number }[])?.[0]?.count ?? 0) > 0
+  );
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">History</h1>
 
-      {sessions?.length === 0 && (
+      {validSessions.length === 0 && (
         <p className="text-muted-foreground text-sm text-center py-12">
           No completed workouts yet. Finish a workout to see it here!
         </p>
       )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {sessions?.map((session) => {
+        {validSessions.map((session) => {
           const duration = session.finished_at
             ? differenceInMinutes(new Date(session.finished_at), new Date(session.started_at))
             : null;
