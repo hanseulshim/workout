@@ -22,6 +22,7 @@ interface RoutineWithExercises extends Routine {
     position: number;
     default_sets: number;
     default_reps: number | null;
+    set_targets: Array<{ reps: string }> | null;
     exercises: { id: string; name: string; log_type: string; gif_url: string | null } | null;
   }>;
 }
@@ -67,10 +68,10 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
         gifUrl: re.exercises?.gif_url ?? null,
         logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
         supersetId: null,
-        sets: Array.from({ length: re.default_sets }, (_, i) => ({
+        sets: (re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }))).map((st, i) => ({
           id: Math.random().toString(36).slice(2),
           setNumber: i + 1,
-          reps: re.default_reps?.toString() ?? "",
+          reps: st.reps,
           weight: "",
           weightUnit: defaultWeightUnit,
           isBodyweight: false,
