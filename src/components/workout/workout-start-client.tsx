@@ -127,16 +127,22 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId }: Pro
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Start from routine</h2>
           <div className="space-y-2">
             {routines.map((r) => (
-              <Card key={r.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardContent
-                  className="flex items-center justify-between py-4"
-                  onClick={() => router.push(`/workout/start?routine=${r.id}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{r.name}</span>
-                  </div>
-                  <Play className="h-4 w-4 text-muted-foreground" />
+              <Card key={r.id} className="hover:bg-muted/30 transition-colors">
+                <CardContent className="flex items-center justify-between py-4 gap-2">
+                  <button
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    onClick={() => router.push(`/routines/${r.id}`)}
+                  >
+                    <Dumbbell className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate">{r.name}</span>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/workout/start?routine=${r.id}`)}
+                    className="shrink-0 p-2 rounded-md hover:bg-primary hover:text-primary-foreground text-muted-foreground transition-colors"
+                    title="Start workout"
+                  >
+                    <Play className="h-4 w-4" />
+                  </button>
                 </CardContent>
               </Card>
             ))}
