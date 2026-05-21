@@ -46,7 +46,7 @@ interface Props {
 
 export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastSets }: Props) {
   const router = useRouter();
-  const { startWorkout, defaultWeightUnit } = useWorkoutStore();
+  const { startWorkout, defaultWeightUnit, activeWorkout } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState(
     preselectedRoutine ? preselectedRoutine.name : `Workout ${new Date().toLocaleDateString()}`
   );
@@ -117,10 +117,15 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
 
   const startedRef = useRef(false);
 
-  // Auto-start immediately when a routine is preselected
+  // Auto-start when a routine is preselected — but resume existing session if it's the same routine
   useEffect(() => {
     if (preselectedRoutine && !startedRef.current) {
       startedRef.current = true;
+      // If there's already an active workout for this routine, just navigate back to it
+      if (activeWorkout?.sessionId && activeWorkout.routineId === preselectedRoutine.id) {
+        router.push(`/workout/${activeWorkout.sessionId}`);
+        return;
+      }
       handleStart(preselectedRoutine, preselectedRoutine.name);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
