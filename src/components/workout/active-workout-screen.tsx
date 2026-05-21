@@ -471,22 +471,22 @@ function SetRow({ set: s, logType, onUpdate, onToggleComplete }: {
   if (logType === "duration") return (
     <div className={cn(rowClass, "grid-cols-[32px_1fr_48px]")}>
       <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
-      <Input type="number" inputMode="numeric" placeholder="0" value={s.durationSeconds} onChange={(e) => onUpdate({ durationSeconds: e.target.value })} className="h-9 text-center text-sm" />
+      <Input type="number" inputMode="numeric" placeholder="0" value={s.durationSeconds} onChange={(e) => onUpdate({ durationSeconds: e.target.value })} onFocus={(e) => e.target.select()} className="h-9 text-center text-sm" />
       {checkBtn}
     </div>
   );
   if (logType === "bodyweight_reps") return (
     <div className={cn(rowClass, "grid-cols-[32px_1fr_48px]")}>
       <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
-      <Input type="number" inputMode="numeric" placeholder="0" value={s.reps} onChange={(e) => onUpdate({ reps: e.target.value })} className="h-9 text-center text-sm" />
+      <Input type="number" inputMode="numeric" placeholder="0" value={s.reps} onChange={(e) => onUpdate({ reps: e.target.value })} onFocus={(e) => e.target.select()} className="h-9 text-center text-sm" />
       {checkBtn}
     </div>
   );
   return (
     <div className={cn(rowClass, "grid-cols-[32px_1fr_1fr_48px]")}>
       <span className="text-xs text-center font-medium tabular-nums">{s.setNumber}</span>
-      <Input type="number" inputMode="decimal" placeholder="0" value={s.weight} onChange={(e) => onUpdate({ weight: e.target.value })} className="h-9 text-center text-sm" />
-      <Input type="number" inputMode="numeric" placeholder="0" value={s.reps} onChange={(e) => onUpdate({ reps: e.target.value })} className="h-9 text-center text-sm" />
+      <Input type="number" inputMode="decimal" placeholder="0" value={s.weight} onChange={(e) => onUpdate({ weight: e.target.value })} onFocus={(e) => e.target.select()} className="h-9 text-center text-sm" />
+      <Input type="number" inputMode="numeric" placeholder="0" value={s.reps} onChange={(e) => onUpdate({ reps: e.target.value })} onFocus={(e) => e.target.select()} className="h-9 text-center text-sm" />
       {checkBtn}
     </div>
   );
