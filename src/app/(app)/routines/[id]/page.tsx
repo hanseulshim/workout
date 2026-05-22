@@ -8,6 +8,7 @@ import { ChevronLeft, Pencil, Play, Calendar, Dumbbell } from "lucide-react";
 import { format } from "date-fns";
 import { RoutineVolumeChart } from "@/components/routines/routine-volume-chart";
 import { RoutineDeleteButton } from "@/components/routines/routine-delete-button";
+import { SessionHistoryList } from "@/components/routines/session-history-list";
 
 export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -151,21 +152,8 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
               History
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {(sessions ?? []).map((sess) => (
-              <Link
-                key={sess.id}
-                href={`/history/${sess.id}`}
-                className="flex items-center justify-between text-sm py-1.5 hover:opacity-70 transition-opacity"
-              >
-                <span className="font-medium">{format(new Date(sess.started_at), "EEE, MMM d yyyy")}</span>
-                <span className="text-muted-foreground text-xs">
-                  {sess.finished_at
-                    ? `${Math.round((new Date(sess.finished_at).getTime() - new Date(sess.started_at).getTime()) / 60000)} min`
-                    : "In progress"}
-                </span>
-              </Link>
-            ))}
+          <CardContent>
+            <SessionHistoryList sessions={sessions ?? []} />
           </CardContent>
         </Card>
       )}

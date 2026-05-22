@@ -44,6 +44,38 @@ export default async function ProgressPage() {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const exerciseIds = exercises.map((exercise) => exercise.id);
+  const lastSetByExercise: Record<string, { weight: number | null; reps: number | null; weight_unit: string; log_type: string }> = {};
+  if (exerciseIds.length > 0) {
+    type RecentSet = {
+      exercise_id: string;
+      weight: number | null;
+      reps: number | null;
+      weight_unit: string;
+      exercises: { log_type: string } | { log_type: string }[] | null;
+    };
+
+    const { data: recentSets } = await supabase
+      .from("workout_sets")
+      .select("exercise_id, weight, reps, weight_unit, completed_at, exercises(log_type), workout_sessions!inner(user_id)")
+      .in("exercise_id", exerciseIds)
+      .eq("workout_sessions.user_id", user!.id)
+      .order("completed_at", { ascending: false })
+      .limit(500);
+
+    for (const setItem of (recentSets ?? []) as RecentSet[]) {
+      if (!lastSetByExercise[setItem.exercise_id]) {
+        const exercise = Array.isArray(setItem.exercises) ? setItem.exercises[0] : setItem.exercises;
+        lastSetByExercise[setItem.exercise_id] = {
+          weight: setItem.weight,
+          reps: setItem.reps,
+          weight_unit: setItem.weight_unit,
+          log_type: exercise?.log_type ?? "weight_reps",
+        };
+      }
+    }
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Progress</h1>
@@ -62,6 +94,17 @@ export default async function ProgressPage() {
                   <Badge variant="outline" className="text-xs mt-1">
                     {muscleGroupLabels[ex.muscle_group]}
                   </Badge>
+                  {(() => {
+                    const last = lastSetByExercise[ex.id];
+                    if (!last) return null;
+                    let label = "";
+                    if (last.log_type === "duration" && last.reps) label = `Last: ${last.reps}s`;
+                    else if (last.log_type === "bodyweight_reps" && last.reps) label = `Last: ${last.reps} reps`;
+                    else if (last.weight && last.reps) label = `Last: ${last.weight} ${last.weight_unit} × ${last.reps}`;
+                    else if (last.weight) label = `Last: ${last.weight} ${last.weight_unit}`;
+                    if (!label) return null;
+                    return <p className="mt-1 text-xs text-muted-foreground">{label}</p>;
+                  })()}
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </CardContent>

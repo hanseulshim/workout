@@ -20,7 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Check, Plus, Trash2, Timer, X } from "lucide-react";
+import { Check, Pause, Play, Plus, Trash2, Timer, X } from "lucide-react";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { ExerciseEditorCard, SupersetLinkButton, SupersetGroup } from "@/components/workout/exercise-editor-card";
 import type { Exercise, LogType } from "@/types/database";
@@ -81,11 +81,14 @@ export function ActiveWorkoutScreen() {
     restTimer,
     tickRestTimer,
     stopRestTimer,
+    pauseRestTimer,
     startRestTimer,
     linkSuperset,
     unlinkSuperset,
     setExerciseRestTime,
     setExerciseNotes,
+    newPr,
+    clearPr,
   } = useWorkoutStore();
 
   const [finishing, setFinishing] = useState(false);
@@ -108,7 +111,7 @@ export function ActiveWorkoutScreen() {
   }, []);
 
   useEffect(() => {
-    if (restTimer.active) {
+    if (restTimer.active && !restTimer.paused && restTimer.seconds > 0) {
       timerRef.current = setInterval(() => tickRestTimer(), 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -117,8 +120,17 @@ export function ActiveWorkoutScreen() {
         toast.info("Rest over! Time for your next set.", { duration: 3000 });
       }
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [restTimer.active, tickRestTimer, restTimer.seconds]);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [restTimer.active, restTimer.paused, restTimer.seconds, tickRestTimer]);
+
+  useEffect(() => {
+    if (newPr) {
+      toast.success(`🏆 New PR! ${newPr.exerciseName}: ${newPr.value}`);
+      clearPr();
+    }
+  }, [newPr, clearPr]);
 
   if (!activeWorkout) {
     return (
@@ -145,6 +157,8 @@ export function ActiveWorkoutScreen() {
         supersetId: null,
         restSeconds: 90,
         notes: "",
+        bestWeight: null,
+        bestReps: null,
         sets: [{
           id: Math.random().toString(36).slice(2),
           setNumber: 1,
@@ -175,48 +189,63 @@ export function ActiveWorkoutScreen() {
   async function handleFinish() {
     if (!activeWorkout) return;
     setFinishing(true);
-    const supabase = createClient();
-    await supabase.from("workout_sessions").update({ finished_at: new Date().toISOString() }).eq("id", activeWorkout.sessionId!);
-    const setsToInsert = activeWorkout.exercises.flatMap((ex) =>
-      ex.sets.filter((s) => s.completed).map((s) => ({
-        session_id: activeWorkout.sessionId!,
-        exercise_id: ex.exerciseId,
-        set_number: s.setNumber,
-        reps: ex.logType === "duration" ? null : (s.reps ? parseInt(s.reps) : null),
-        weight: ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.logType)
-          ? (s.weight ? parseFloat(s.weight) : null) : null,
-        weight_unit: s.weightUnit,
-        is_bodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.logType),
-        duration_seconds: ex.logType === "duration" ? (s.durationSeconds ? parseInt(s.durationSeconds) : null) : null,
-      }))
-    );
-    if (setsToInsert.length > 0) await supabase.from("workout_sets").insert(setsToInsert);
 
-    // Update routine_exercises set_targets so the editor reflects latest actual reps
-    if (activeWorkout.routineId) {
-      await Promise.all(
-        activeWorkout.exercises.map(async (ex) => {
-          const completedSets = ex.sets.filter((s) => s.completed);
-          if (completedSets.length === 0) return;
-          const newTargets = ex.sets.map((s) => ({
-            reps: ex.logType === "duration"
-              ? (s.durationSeconds ?? "")
-              : (s.completed && s.reps ? s.reps : (s.reps ?? "")),
-            weight: s.completed && s.weight ? s.weight : (s.weight ?? ""),
-          }));
-          await supabase
-            .from("routine_exercises")
-            .update({ set_targets: newTargets, default_sets: newTargets.length, notes: ex.notes || null })
-            .eq("routine_id", activeWorkout.routineId!)
-            .eq("exercise_id", ex.exerciseId);
-        })
+    try {
+      const supabase = createClient();
+      const { error: sessionErr } = await supabase
+        .from("workout_sessions")
+        .update({ finished_at: new Date().toISOString() })
+        .eq("id", activeWorkout.sessionId!);
+      if (sessionErr) throw sessionErr;
+
+      const setsToInsert = activeWorkout.exercises.flatMap((ex) =>
+        ex.sets.filter((s) => s.completed).map((s) => ({
+          session_id: activeWorkout.sessionId!,
+          exercise_id: ex.exerciseId,
+          set_number: s.setNumber,
+          reps: ex.logType === "duration" ? null : (s.reps ? parseInt(s.reps) : null),
+          weight: ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.logType)
+            ? (s.weight ? parseFloat(s.weight) : null) : null,
+          weight_unit: s.weightUnit,
+          is_bodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.logType),
+          duration_seconds: ex.logType === "duration" ? (s.durationSeconds ? parseInt(s.durationSeconds) : null) : null,
+        }))
       );
-    }
+      if (setsToInsert.length > 0) {
+        const { error: setsErr } = await supabase.from("workout_sets").insert(setsToInsert);
+        if (setsErr) throw setsErr;
+      }
 
-    endWorkout();
-    toast.success("Workout saved! 💪");
-    router.refresh(); // bust Next.js router cache so edit page shows updated values
-    router.push("/history");
+      if (activeWorkout.routineId) {
+        await Promise.all(
+          activeWorkout.exercises.map(async (ex) => {
+            const completedSets = ex.sets.filter((s) => s.completed);
+            if (completedSets.length === 0) return;
+            const newTargets = ex.sets.map((s) => ({
+              reps: ex.logType === "duration"
+                ? (s.durationSeconds ?? "")
+                : (s.completed && s.reps ? s.reps : (s.reps ?? "")),
+              weight: s.completed && s.weight ? s.weight : (s.weight ?? ""),
+            }));
+            const { error: routineErr } = await supabase
+              .from("routine_exercises")
+              .update({ set_targets: newTargets, default_sets: newTargets.length, notes: ex.notes || null })
+              .eq("routine_id", activeWorkout.routineId!)
+              .eq("exercise_id", ex.exerciseId);
+            if (routineErr) throw routineErr;
+          })
+        );
+      }
+
+      endWorkout();
+      toast.success("Workout saved! 💪");
+      router.refresh();
+      router.push("/history");
+    } catch (err) {
+      console.error("handleFinish error:", err);
+      toast.error("Failed to save workout. Please try again.");
+      setFinishing(false);
+    }
   }
 
   async function handleDiscard() {
@@ -267,6 +296,9 @@ export function ActiveWorkoutScreen() {
               <span className="text-2xl font-bold tabular-nums text-primary">
                 {Math.floor(restTimer.seconds / 60)}:{String(restTimer.seconds % 60).padStart(2, "0")}
               </span>
+              <Button size="sm" variant="ghost" onClick={pauseRestTimer}>
+                {restTimer.paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              </Button>
               <Button size="sm" variant="ghost" onClick={stopRestTimer}><X className="h-3 w-3" /></Button>
             </div>
           </CardContent>

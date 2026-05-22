@@ -21,6 +21,8 @@ export interface ActiveExercise {
   supersetId: string | null;
   restSeconds: number; // 0 = no auto-rest
   notes: string;
+  bestWeight: number | null;
+  bestReps: number | null;
   sets: ActiveSet[];
 }
 
@@ -35,7 +37,8 @@ export interface ActiveWorkout {
 interface WorkoutStore {
   activeWorkout: ActiveWorkout | null;
   defaultWeightUnit: WeightUnit;
-  restTimer: { active: boolean; seconds: number; exerciseId: string | null };
+  restTimer: { active: boolean; paused: boolean; seconds: number; exerciseId: string | null };
+  newPr: { exerciseName: string; value: string } | null;
 
   startWorkout: (workout: ActiveWorkout) => void;
   endWorkout: () => void;
@@ -51,8 +54,10 @@ interface WorkoutStore {
   setSessionId: (id: string) => void;
   setDefaultWeightUnit: (unit: WeightUnit) => void;
   startRestTimer: (exerciseId: string, seconds?: number) => void;
+  pauseRestTimer: () => void;
   tickRestTimer: () => void;
   stopRestTimer: () => void;
+  clearPr: () => void;
   linkSuperset: (exerciseId1: string, exerciseId2: string) => void;
   unlinkSuperset: (exerciseId: string) => void;
 }
@@ -66,10 +71,15 @@ export const useWorkoutStore = create<WorkoutStore>()(
     (set, get) => ({
       activeWorkout: null,
       defaultWeightUnit: "lbs",
-      restTimer: { active: false, seconds: 90, exerciseId: null },
+      restTimer: { active: false, paused: false, seconds: 90, exerciseId: null },
+      newPr: null,
 
       startWorkout: (workout) => set({ activeWorkout: workout }),
-      endWorkout: () => set({ activeWorkout: null, restTimer: { active: false, seconds: 90, exerciseId: null } }),
+      endWorkout: () => set({
+        activeWorkout: null,
+        restTimer: { active: false, paused: false, seconds: 90, exerciseId: null },
+        newPr: null,
+      }),
 
       addExercise: (exercise) =>
         set((state) => ({
@@ -159,26 +169,46 @@ export const useWorkoutStore = create<WorkoutStore>()(
         })),
 
       toggleSetComplete: (exerciseId, setId) => {
-        const { activeWorkout, defaultWeightUnit } = get();
+        const { activeWorkout } = get();
         if (!activeWorkout) return;
-        // Check current state before toggling
-        const ex = activeWorkout.exercises.find((e) => e.exerciseId === exerciseId);
-        const wasCompleted = ex?.sets.find((s) => s.id === setId)?.completed ?? false;
-        set({
-          activeWorkout: {
-            ...activeWorkout,
-            exercises: activeWorkout.exercises.map((e) =>
-              e.exerciseId !== exerciseId
-                ? e
-                : { ...e, sets: e.sets.map((s) => s.id === setId ? { ...s, completed: !s.completed } : s) }
-            ),
-          },
+        const ex = activeWorkout.exercises.find((exercise) => exercise.exerciseId === exerciseId);
+        const wasCompleted = ex?.sets.find((setItem) => setItem.id === setId)?.completed ?? false;
+
+        set((state) => {
+          if (!state.activeWorkout) return {};
+          let newPr = state.newPr;
+          const exercises = state.activeWorkout.exercises.map((exercise) => {
+            if (exercise.exerciseId !== exerciseId) return exercise;
+            const sets = exercise.sets.map((setItem) => {
+              if (setItem.id !== setId) return setItem;
+              const completing = !setItem.completed;
+              if (completing) {
+                const weight = setItem.weight ? parseFloat(setItem.weight) : null;
+                const reps = setItem.reps ? parseInt(setItem.reps) : null;
+                if (weight !== null && exercise.bestWeight !== null && weight > exercise.bestWeight) {
+                  newPr = { exerciseName: exercise.exerciseName, value: `${weight} ${setItem.weightUnit}` };
+                } else if (exercise.bestWeight === null && weight !== null && weight > 0) {
+                  newPr = { exerciseName: exercise.exerciseName, value: `${weight} ${setItem.weightUnit}` };
+                } else if (exercise.logType === "bodyweight_reps" && reps !== null && exercise.bestReps !== null && reps > exercise.bestReps) {
+                  newPr = { exerciseName: exercise.exerciseName, value: `${reps} reps` };
+                } else if (exercise.logType === "bodyweight_reps" && exercise.bestReps === null && reps !== null && reps > 0) {
+                  newPr = { exerciseName: exercise.exerciseName, value: `${reps} reps` };
+                }
+              }
+              return { ...setItem, completed: !setItem.completed };
+            });
+            return { ...exercise, sets };
+          });
+
+          return {
+            activeWorkout: { ...state.activeWorkout, exercises },
+            newPr,
+          };
         });
-        // Auto-start rest timer when marking complete (not when uncompleting)
+
         if (!wasCompleted && ex && ex.restSeconds > 0) {
           get().startRestTimer(exerciseId, ex.restSeconds);
         }
-        void defaultWeightUnit;
       },
 
       setExerciseRestTime: (exerciseId, seconds) =>
@@ -213,18 +243,28 @@ export const useWorkoutStore = create<WorkoutStore>()(
       setDefaultWeightUnit: (unit) => set({ defaultWeightUnit: unit }),
 
       startRestTimer: (exerciseId, seconds = 90) =>
-        set({ restTimer: { active: true, seconds, exerciseId } }),
+        set({ restTimer: { active: true, paused: false, seconds, exerciseId } }),
 
-      tickRestTimer: () =>
+      pauseRestTimer: () =>
         set((state) => ({
-          restTimer:
-            state.restTimer.seconds > 0
-              ? { ...state.restTimer, seconds: state.restTimer.seconds - 1 }
-              : { active: false, seconds: 0, exerciseId: null },
+          restTimer: { ...state.restTimer, paused: !state.restTimer.paused },
         })),
 
+      tickRestTimer: () =>
+        set((state) => {
+          if (!state.restTimer.active || state.restTimer.paused) return {};
+          if (state.restTimer.seconds <= 0) {
+            return { restTimer: { active: false, paused: false, seconds: 90, exerciseId: null } };
+          }
+          return {
+            restTimer: { ...state.restTimer, seconds: state.restTimer.seconds - 1 },
+          };
+        }),
+
       stopRestTimer: () =>
-        set({ restTimer: { active: false, seconds: 90, exerciseId: null } }),
+        set({ restTimer: { active: false, paused: false, seconds: 90, exerciseId: null } }),
+
+      clearPr: () => set({ newPr: null }),
 
       linkSuperset: (exerciseId1, exerciseId2) =>
         set((state) => {

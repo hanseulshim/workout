@@ -10,7 +10,7 @@ export default async function WorkoutStartPage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: routines }, { data: preselectedRoutine }] = await Promise.all([
+  const [{ data: routines }, { data: preselectedRoutine }, { data: bestsRaw }] = await Promise.all([
     supabase
       .from("routines")
       .select("id, name")
@@ -23,7 +23,24 @@ export default async function WorkoutStartPage({
           .eq("id", routineId)
           .single()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("workout_sets")
+      .select("exercise_id, weight, reps, workout_sessions!inner(user_id)")
+      .eq("workout_sessions.user_id", user!.id),
   ]);
+
+  type PersonalBest = { exercise_id: string; weight: number | null; reps: number | null };
+  const personalBests: Record<string, { weight: number | null; reps: number | null }> = {};
+  for (const setItem of (bestsRaw ?? []) as PersonalBest[]) {
+    const current = personalBests[setItem.exercise_id] ?? { weight: null, reps: null };
+    if (setItem.weight !== null && (current.weight === null || setItem.weight > current.weight)) {
+      current.weight = setItem.weight;
+    }
+    if (setItem.reps !== null && (current.reps === null || setItem.reps > current.reps)) {
+      current.reps = setItem.reps;
+    }
+    personalBests[setItem.exercise_id] = current;
+  }
 
   // Fetch last completed session's sets for this routine (for pre-fill)
   type LastSet = { exercise_id: string; set_number: number; weight: number | null; reps: number | null; weight_unit: string; duration_seconds: number | null };
@@ -55,6 +72,7 @@ export default async function WorkoutStartPage({
       preselectedRoutine={preselectedRoutine}
       userId={user!.id}
       lastSets={lastSets}
+      personalBests={personalBests}
     />
   );
 }

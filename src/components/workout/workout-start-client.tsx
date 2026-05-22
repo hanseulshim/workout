@@ -53,9 +53,10 @@ interface Props {
   preselectedRoutine: RoutineWithExercises | null;
   userId: string;
   lastSets: LastSet[];
+  personalBests: Record<string, { weight: number | null; reps: number | null }>;
 }
 
-export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastSets }: Props) {
+export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastSets, personalBests }: Props) {
   const router = useRouter();
   const { startWorkout, defaultWeightUnit, activeWorkout, endWorkout } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState(
@@ -108,6 +109,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
 
         const logType = (re.exercises?.log_type ?? "weight_reps") as LogType;
         const setTemplates: Array<{ reps: string; weight?: string }> = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }));
+        const best = personalBests[re.exercise_id] ?? { weight: null, reps: null };
 
         return {
           exerciseId: re.exercise_id,
@@ -117,6 +119,8 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           supersetId: re.superset_id ?? null,
           restSeconds: 90,
           notes: re.notes ?? "",
+          bestWeight: best.weight,
+          bestReps: best.reps,
           sets: setTemplates.map((st, i) => {
             const prev = prevSets[i + 1];
             const isDuration = logType === "duration";
