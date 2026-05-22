@@ -212,6 +212,7 @@ export function ActiveWorkoutScreen() {
 
     endWorkout();
     toast.success("Workout saved! 💪");
+    router.refresh(); // bust Next.js router cache so edit page shows updated values
     router.push("/history");
   }
 

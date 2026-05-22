@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -99,9 +99,10 @@ function buildGroups(exercises: SelectedExercise[]): ExGroup[] {
 
 export function RoutineBuilder({ exercises, userId, routine }: Props) {
   const router = useRouter();
-  const [name, setName] = useState(routine?.name ?? "");
-  const [selected, setSelected] = useState<SelectedExercise[]>(
-    routine?.routine_exercises
+  const routineKey = routine?.id ?? "new";
+
+  function buildSelected(): SelectedExercise[] {
+    return routine?.routine_exercises
       .sort((a, b) => a.position - b.position)
       .map((re) => ({
         exerciseId: re.exercise_id,
@@ -109,10 +110,21 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         gifUrl: re.exercises?.gif_url ?? null,
         sets: re.set_targets ?? defaultSets(re.default_sets, re.default_reps),
         supersetId: re.superset_id ?? null,
-      })) ?? []
-  );
+      })) ?? [];
+  }
+
+  const [name, setName] = useState(routine?.name ?? "");
+  const [selected, setSelected] = useState<SelectedExercise[]>(buildSelected);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Re-sync when routine data changes (e.g. fresh server fetch after navigation)
+  const prevRoutineKey = useRef(routineKey);
+  if (prevRoutineKey.current !== routineKey) {
+    prevRoutineKey.current = routineKey;
+    setName(routine?.name ?? "");
+    setSelected(buildSelected());
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
