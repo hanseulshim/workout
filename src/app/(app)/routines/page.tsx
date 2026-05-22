@@ -51,7 +51,7 @@ export default async function RoutinesPage() {
                 </Link>
                 <Link
                   href={`/workout/start?routine=${routine.id}`}
-                  className={cn(buttonVariants({ size: "icon" }), "h-8 w-8")}
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 text-primary hover:text-primary")}
                   title="Start workout"
                 >
                   <Play className="h-3.5 w-3.5" />
