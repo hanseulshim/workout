@@ -504,7 +504,13 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 function normalizeName(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return value
+    .trim()
+    .replace(/\s*\([^)]+\)/g, "") // strip "(Barbell)", "(Weighted)", etc.
+    .replace(/-/g, " ") // "Chin-Up" → "Chin Up"
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function toInt(value: string, fallback: number) {
