@@ -17,7 +17,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   const [{ data: routine }, { data: sessions }] = await Promise.all([
     supabase
       .from("routines")
-      .select(`*, routine_exercises(position, default_sets, default_reps, exercises(id, name, muscle_group))`)
+      .select(`*, routine_exercises(position, default_sets, default_reps, set_targets, exercises(id, name, muscle_group))`)
       .eq("id", id)
       .eq("user_id", user!.id)
       .single(),
@@ -36,6 +36,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
     position: number;
     default_sets: number;
     default_reps: number | null;
+    set_targets: Array<{ reps: string }> | null;
     exercises: { id: string; name: string; muscle_group: string } | null;
   }>)
     .sort((a, b) => a.position - b.position)
@@ -119,7 +120,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
                 <span className="text-muted-foreground ml-2">{re.exercises!.muscle_group}</span>
               </div>
               <span className="text-muted-foreground text-xs">
-                {re.default_sets} × {re.default_reps ?? "–"}
+                {re.set_targets ? re.set_targets.length : re.default_sets} sets
               </span>
             </div>
           ))}

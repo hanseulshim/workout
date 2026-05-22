@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Play, Clock } from "lucide-react";
+import { Plus, Play, Clock, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -56,12 +55,10 @@ export default async function DashboardPage() {
             <div className="space-y-2">
               {routines.map((routine) => (
                 <Card key={routine.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <Link href={`/workout/start?routine=${routine.id}`}>
+                  <Link href={`/routines/${routine.id}`}>
                     <CardContent className="flex items-center justify-between py-4">
                       <span className="font-medium">{routine.name}</span>
-                      <Button size="sm" variant="ghost">
-                        <Play className="h-4 w-4" />
-                      </Button>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </CardContent>
                   </Link>
                 </Card>

@@ -23,12 +23,12 @@ export default async function ProgressPage() {
     category: string;
   };
 
-  // Get all exercises the user has logged
+  // Get all exercises the user has logged (join through workout_sessions to filter by user)
   const { data: loggedExercises } = await supabase
     .from("workout_sets")
-    .select(`exercise_id, exercises(id, name, muscle_group, category)`)
+    .select(`exercise_id, exercises(id, name, muscle_group, category), workout_sessions!inner(user_id)`)
     .eq("workout_sessions.user_id", user!.id)
-    .limit(200);
+    .limit(500);
 
   // Deduplicate
   const seen = new Set<string>();
