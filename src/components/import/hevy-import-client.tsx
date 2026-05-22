@@ -4,6 +4,8 @@ import { useRef, useState, useCallback, type ChangeEvent } from "react";
 import { parse } from "date-fns";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   FileSpreadsheet,
   Loader2,
   Pencil,
@@ -64,10 +66,16 @@ interface HevySession {
   rows: HevyRow[];
 }
 
+interface ExerciseHistorySession {
+  date: string;
+  sets: string[];
+}
+
 interface ExercisePreview {
   name: string;
   inferredLogType: LogType;
   matched: boolean;
+  history: ExerciseHistorySession[];
 }
 
 interface PreviewData {
@@ -108,6 +116,8 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
   const [exerciseRemaps, setExerciseRemaps] = useState<Record<string, string>>({});
   const [editingExercise, setEditingExercise] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [excludedExercises, setExcludedExercises] = useState<Set<string>>(new Set());
+  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
 
   const effectiveName = useCallback(
     (original: string) => exerciseRemaps[original] ?? original,
@@ -123,7 +133,27 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
   );
 
   const newExerciseCount =
-    preview?.exercises.filter((e) => !isMatchedAfterRemap(e.name)).length ?? 0;
+    preview?.exercises
+      .filter((e) => !excludedExercises.has(e.name) && !isMatchedAfterRemap(e.name))
+      .length ?? 0;
+
+  function toggleExclude(originalName: string) {
+    setExcludedExercises((prev) => {
+      const next = new Set(prev);
+      if (next.has(originalName)) next.delete(originalName);
+      else next.add(originalName);
+      return next;
+    });
+  }
+
+  function toggleExpand(originalName: string) {
+    setExpandedExercises((prev) => {
+      const next = new Set(prev);
+      if (next.has(originalName)) next.delete(originalName);
+      else next.add(originalName);
+      return next;
+    });
+  }
 
   function startEdit(originalName: string) {
     setEditingExercise(originalName);
@@ -187,6 +217,7 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
 
       // First pass: resolve already-matched exercises (accounting for remaps)
       for (const exercise of preview.exercises) {
+        if (excludedExercises.has(exercise.name)) continue;
         const eff = effectiveName(exercise.name);
         const existing = knownExercises.find(
           (e) => normalizeName(e.name) === normalizeName(eff),
@@ -199,6 +230,7 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
       // Second pass: create exercises that still have no ID
       let createdExercises = 0;
       for (const exercise of preview.exercises) {
+        if (excludedExercises.has(exercise.name)) continue;
         if (exerciseIdMap.has(normalizeName(exercise.name))) continue;
 
         const eff = effectiveName(exercise.name);
@@ -277,7 +309,9 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
           throw new Error(`Failed to import session: ${session.title}`);
         }
 
-        const setRows = session.rows.map((row) => {
+        const setRows = session.rows
+          .filter((row) => !excludedExercises.has(row.exercise_title))
+          .map((row) => {
           const exerciseId = exerciseIdMap.get(normalizeName(row.exercise_title));
           if (!exerciseId) {
             throw new Error(`Missing exercise mapping for ${row.exercise_title}`);
@@ -393,6 +427,8 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
     setProgress({ completed: 0, total: 0, currentSession: "" });
     setExerciseRemaps({});
     setEditingExercise(null);
+    setExcludedExercises(new Set());
+    setExpandedExercises(new Set());
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -462,7 +498,7 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
           <CardHeader>
             <CardTitle>Exercises</CardTitle>
             <CardDescription>
-              Click the pencil to rename any exercise before importing.
+              Click an exercise to see its history. Use ✏️ to rename, or toggle off to skip importing it.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -471,18 +507,32 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
               const matched = isMatchedAfterRemap(exercise.name);
               const remapped = eff !== exercise.name;
               const isEditing = editingExercise === exercise.name;
+              const excluded = excludedExercises.has(exercise.name);
+              const expanded = expandedExercises.has(exercise.name);
 
               return (
                 <div
                   key={exercise.name}
-                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                  className={`rounded-lg border ${excluded ? "opacity-40" : ""}`}
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    {/* expand toggle */}
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                      onClick={() => toggleExpand(exercise.name)}
+                    >
+                      {expanded
+                        ? <ChevronDown className="h-4 w-4" />
+                        : <ChevronRight className="h-4 w-4" />}
+                    </button>
+
                     {matched ? (
                       <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
                     ) : (
                       <PlusCircle className="h-4 w-4 shrink-0 text-orange-500" />
                     )}
+
                     <div className="min-w-0 flex-1">
                       {isEditing ? (
                         <div className="flex items-center gap-1">
@@ -512,35 +562,56 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
                         <p className="truncate font-medium">{eff}</p>
                       )}
                       {remapped && !isEditing && (
-                        <p className="text-xs text-muted-foreground">
-                          was: {exercise.name}
-                        </p>
+                        <p className="text-xs text-muted-foreground">was: {exercise.name}</p>
                       )}
                       {!remapped && !isEditing && (
                         <p className="text-xs text-muted-foreground">
-                          {formatLogType(exercise.inferredLogType)}
+                          {exercise.history.length} session{exercise.history.length !== 1 ? "s" : ""} · {formatLogType(exercise.inferredLogType)}
                         </p>
                       )}
                     </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {!isEditing && (
+
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {!isEditing && (
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => startEdit(exercise.name)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {matched ? (
+                        <Badge variant="secondary">Matched</Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-orange-500 text-orange-500">
+                          Create new
+                        </Badge>
+                      )}
                       <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => startEdit(exercise.name)}
+                        onClick={() => toggleExclude(exercise.name)}
+                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                          excluded
+                            ? "border-muted-foreground text-muted-foreground"
+                            : "border-destructive text-destructive hover:bg-destructive/10"
+                        }`}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        {excluded ? "Include" : "Skip"}
                       </button>
-                    )}
-                    {matched ? (
-                      <Badge variant="secondary">Matched</Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-orange-500 text-orange-500">
-                        Create new
-                      </Badge>
-                    )}
+                    </div>
                   </div>
+
+                  {expanded && exercise.history.length > 0 && (
+                    <div className="border-t px-3 py-2 space-y-2">
+                      {exercise.history.map((session) => (
+                        <div key={session.date}>
+                          <p className="text-xs font-medium text-muted-foreground">{session.date}</p>
+                          <p className="text-xs text-foreground">{session.sets.join(" · ")}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -787,7 +858,37 @@ function buildPreviewData(rows: HevyRow[], existingExercises: ExistingExercise[]
         name: row.exercise_title,
         inferredLogType: inferLogType(row),
         matched: existingByName.has(normalizedExerciseName),
+        history: [],
       });
+    }
+  }
+
+  // Build per-exercise history (grouped by session)
+  const exerciseHistoryMap = new Map<string, Map<string, string[]>>();
+  for (const row of rows) {
+    const normName = normalizeName(row.exercise_title);
+    if (!exerciseHistoryMap.has(normName)) exerciseHistoryMap.set(normName, new Map());
+    const sessionMap = exerciseHistoryMap.get(normName)!;
+    const dateKey = row.start_time;
+    if (!sessionMap.has(dateKey)) sessionMap.set(dateKey, []);
+    let setLabel: string;
+    if (row.duration_seconds) {
+      const secs = parseInt(row.duration_seconds, 10);
+      setLabel = secs >= 60 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : `${secs}s`;
+    } else if (row.weight_lbs) {
+      setLabel = `${row.weight_lbs} × ${row.reps}`;
+    } else {
+      setLabel = `${row.reps} reps`;
+    }
+    sessionMap.get(dateKey)!.push(setLabel);
+  }
+
+  for (const [normName, sessionMap] of exerciseHistoryMap.entries()) {
+    const exercise = exercises.get(normName);
+    if (exercise) {
+      exercise.history = Array.from(sessionMap.entries())
+        .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+        .map(([date, sets]) => ({ date, sets }));
     }
   }
 
