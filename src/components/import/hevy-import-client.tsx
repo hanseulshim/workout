@@ -1,14 +1,16 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, useCallback, type ChangeEvent } from "react";
 import { parse } from "date-fns";
 import {
   CheckCircle2,
   FileSpreadsheet,
   Loader2,
+  Pencil,
   PlusCircle,
   RotateCcw,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -102,8 +104,50 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
     currentSession: "",
   });
   const [result, setResult] = useState<ImportResult | null>(null);
+  // originalCsvName → desired name the user wants to import it as
+  const [exerciseRemaps, setExerciseRemaps] = useState<Record<string, string>>({});
+  const [editingExercise, setEditingExercise] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
-  const newExerciseCount = preview?.exercises.filter((exercise) => !exercise.matched).length ?? 0;
+  const effectiveName = useCallback(
+    (original: string) => exerciseRemaps[original] ?? original,
+    [exerciseRemaps],
+  );
+
+  const isMatchedAfterRemap = useCallback(
+    (original: string) => {
+      const eff = effectiveName(original);
+      return knownExercises.some((e) => normalizeName(e.name) === normalizeName(eff));
+    },
+    [effectiveName, knownExercises],
+  );
+
+  const newExerciseCount =
+    preview?.exercises.filter((e) => !isMatchedAfterRemap(e.name)).length ?? 0;
+
+  function startEdit(originalName: string) {
+    setEditingExercise(originalName);
+    setEditValue(effectiveName(originalName));
+  }
+
+  function commitEdit(originalName: string) {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== originalName) {
+      setExerciseRemaps((prev) => ({ ...prev, [originalName]: trimmed }));
+    } else if (!trimmed || trimmed === originalName) {
+      // revert remap if cleared back to original
+      setExerciseRemaps((prev) => {
+        const next = { ...prev };
+        delete next[originalName];
+        return next;
+      });
+    }
+    setEditingExercise(null);
+  }
+
+  function cancelEdit() {
+    setEditingExercise(null);
+  }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -138,17 +182,30 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
     setProgress({ completed: 0, total: preview.sessions.length, currentSession: "" });
 
     try {
+      // Maps original CSV name → exercise_id (for row lookup)
       const exerciseIdMap = new Map<string, string>();
-      for (const exercise of knownExercises) {
-        exerciseIdMap.set(normalizeName(exercise.name), exercise.id);
+
+      // First pass: resolve already-matched exercises (accounting for remaps)
+      for (const exercise of preview.exercises) {
+        const eff = effectiveName(exercise.name);
+        const existing = knownExercises.find(
+          (e) => normalizeName(e.name) === normalizeName(eff),
+        );
+        if (existing) {
+          exerciseIdMap.set(normalizeName(exercise.name), existing.id);
+        }
       }
 
+      // Second pass: create exercises that still have no ID
       let createdExercises = 0;
-      for (const exercise of preview.exercises.filter((item) => !item.matched)) {
+      for (const exercise of preview.exercises) {
+        if (exerciseIdMap.has(normalizeName(exercise.name))) continue;
+
+        const eff = effectiveName(exercise.name);
         const { data, error } = await supabase
           .from("exercises")
           .insert({
-            name: exercise.name,
+            name: eff,
             muscle_group: "other",
             category: "other",
             log_type: exercise.inferredLogType,
@@ -159,13 +216,13 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
           .single();
 
         if (error || !data) {
-          throw new Error(`Failed to create exercise: ${exercise.name}`);
+          throw new Error(`Failed to create exercise: ${eff}`);
         }
 
         exerciseIdMap.set(normalizeName(exercise.name), data.id);
         nextKnownExercises = [
           ...nextKnownExercises,
-          { id: data.id, name: exercise.name, log_type: exercise.inferredLogType },
+          { id: data.id, name: eff, log_type: exercise.inferredLogType },
         ];
         createdExercises += 1;
       }
@@ -334,6 +391,8 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
     setPreview(null);
     setResult(null);
     setProgress({ completed: 0, total: 0, currentSession: "" });
+    setExerciseRemaps({});
+    setEditingExercise(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -402,34 +461,89 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
         <Card>
           <CardHeader>
             <CardTitle>Exercises</CardTitle>
-            <CardDescription>Matched exercises will reuse your existing library.</CardDescription>
+            <CardDescription>
+              Click the pencil to rename any exercise before importing.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {preview.exercises.map((exercise) => (
-              <div
-                key={exercise.name}
-                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  {exercise.matched ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
-                  ) : (
-                    <PlusCircle className="h-4 w-4 shrink-0 text-orange-500" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{exercise.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatLogType(exercise.inferredLogType)}</p>
+            {preview.exercises.map((exercise) => {
+              const eff = effectiveName(exercise.name);
+              const matched = isMatchedAfterRemap(exercise.name);
+              const remapped = eff !== exercise.name;
+              const isEditing = editingExercise === exercise.name;
+
+              return (
+                <div
+                  key={exercise.name}
+                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {matched ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+                    ) : (
+                      <PlusCircle className="h-4 w-4 shrink-0 text-orange-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            autoFocus
+                            className="w-full rounded border bg-background px-1.5 py-0.5 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-ring"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEdit(exercise.name);
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                            onBlur={() => commitEdit(exercise.name)}
+                          />
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              cancelEdit();
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="truncate font-medium">{eff}</p>
+                      )}
+                      {remapped && !isEditing && (
+                        <p className="text-xs text-muted-foreground">
+                          was: {exercise.name}
+                        </p>
+                      )}
+                      {!remapped && !isEditing && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatLogType(exercise.inferredLogType)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {!isEditing && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => startEdit(exercise.name)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {matched ? (
+                      <Badge variant="secondary">Matched</Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-orange-500 text-orange-500">
+                        Create new
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                {exercise.matched ? (
-                  <Badge variant="secondary">Matched</Badge>
-                ) : (
-                  <Badge variant="outline" className="border-orange-500 text-orange-500">
-                    Create new
-                  </Badge>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
