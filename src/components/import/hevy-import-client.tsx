@@ -382,7 +382,10 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
           throw new Error(`Failed to create routine: ${routineName}`);
         }
 
-        const routineRows = buildRoutineExerciseRows(sourceSession.rows, exerciseIdMap).map((row) => ({
+        const routineRows = buildRoutineExerciseRows(
+          sourceSession.rows.filter((row) => !excludedExercises.has(row.exercise_title)),
+          exerciseIdMap,
+        ).map((row) => ({
           routine_id: routine.id,
           ...row,
         }));
