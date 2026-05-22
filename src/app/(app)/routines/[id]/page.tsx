@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronLeft, Pencil, Play, Calendar, Dumbbell } from "lucide-react";
 import { format } from "date-fns";
 import { RoutineVolumeChart } from "@/components/routines/routine-volume-chart";
+import { RoutineDeleteButton } from "@/components/routines/routine-delete-button";
 
 export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -84,6 +85,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <RoutineDeleteButton routineId={id} />
           <Link
             href={`/routines/${id}/edit`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

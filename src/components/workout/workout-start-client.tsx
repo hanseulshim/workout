@@ -7,6 +7,16 @@ import { useWorkoutStore } from "@/store/workout-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Play, Dumbbell, Loader2 } from "lucide-react";
 import type { LogType } from "@/types/database";
@@ -46,15 +56,31 @@ interface Props {
 
 export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastSets }: Props) {
   const router = useRouter();
-  const { startWorkout, defaultWeightUnit, activeWorkout } = useWorkoutStore();
+  const { startWorkout, defaultWeightUnit, activeWorkout, endWorkout } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState(
     preselectedRoutine ? preselectedRoutine.name : `Workout ${new Date().toLocaleDateString()}`
   );
   const [starting, setStarting] = useState(false);
+  const [conflictPending, setConflictPending] = useState<{ routine: RoutineWithExercises | null; name?: string } | null>(null);
 
   void userId;
 
+  async function discardActiveAndStart(routine: RoutineWithExercises | null, name?: string) {
+    if (activeWorkout?.sessionId) {
+      const supabase = createClient();
+      await supabase.from("workout_sessions").delete().eq("id", activeWorkout.sessionId);
+    }
+    endWorkout();
+    setConflictPending(null);
+    await handleStart(routine, name);
+  }
+
   async function handleStart(routine?: RoutineWithExercises | null, name?: string) {
+    // If a different workout is already active, prompt to discard first
+    if (activeWorkout?.sessionId && activeWorkout.routineId !== (routine?.id ?? null)) {
+      setConflictPending({ routine: routine ?? null, name });
+      return;
+    }
     setStarting(true);
     const supabase = createClient();
     const finalName = name ?? workoutName;
@@ -131,7 +157,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (preselectedRoutine) {
+  if (preselectedRoutine && !conflictPending) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -141,6 +167,26 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
   }
 
   return (
+    <>
+      <AlertDialog open={!!conflictPending} onOpenChange={(open) => { if (!open) { setConflictPending(null); if (preselectedRoutine) router.back(); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Workout already in progress</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have <strong>{activeWorkout?.name}</strong> in progress. Discard it to start a new workout?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep current</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => conflictPending && discardActiveAndStart(conflictPending.routine, conflictPending.name)}
+            >
+              Discard &amp; start new
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Start Workout</h1>
 
@@ -182,5 +228,6 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
         </div>
       )}
     </div>
+    </>
   );
 }
