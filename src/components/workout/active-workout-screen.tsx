@@ -200,6 +200,7 @@ export function ActiveWorkoutScreen() {
           if (completedSets.length === 0) return;
           const newTargets = ex.sets.map((s) => ({
             reps: s.completed && s.reps ? s.reps : (s.reps ?? ""),
+            weight: s.completed && s.weight ? s.weight : (s.weight ?? ""),
           }));
           await supabase
             .from("routine_exercises")

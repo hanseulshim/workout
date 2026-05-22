@@ -26,10 +26,11 @@ import { cn } from "@/lib/utils";
 import { Plus, Trash2 } from "lucide-react";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { ExerciseEditorCard, SupersetLinkButton, SupersetGroup } from "@/components/workout/exercise-editor-card";
-import type { Exercise } from "@/types/database";
+import type { Exercise, LogType } from "@/types/database";
 
 interface SetTarget {
   reps: string;
+  weight?: string;
 }
 
 interface RoutineExerciseRow {
@@ -52,6 +53,7 @@ interface SelectedExercise {
   exerciseId: string;
   name: string;
   gifUrl: string | null;
+  logType: LogType;
   sets: SetTarget[];
   supersetId: string | null;
 }
@@ -108,6 +110,7 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         exerciseId: re.exercise_id,
         name: re.exercises?.name ?? "Unknown",
         gifUrl: re.exercises?.gif_url ?? null,
+        logType: re.exercises?.log_type ?? "weight_reps",
         sets: re.set_targets ?? defaultSets(re.default_sets, re.default_reps),
         supersetId: re.superset_id ?? null,
       })) ?? [];
@@ -152,6 +155,7 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         exerciseId: e.id,
         name: e.name,
         gifUrl: e.gif_url ?? null,
+        logType: e.log_type,
         sets: defaultSets(3),
         supersetId: null,
       })),
@@ -159,10 +163,10 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
     setAddOpen(false);
   }
 
-  function updateSet(exIdx: number, setIdx: number, reps: string) {
+  function updateSet(exIdx: number, setIdx: number, updates: Partial<SetTarget>) {
     setSelected((prev) =>
       prev.map((ex, i) =>
-        i !== exIdx ? ex : { ...ex, sets: ex.sets.map((s, j) => (j === setIdx ? { reps } : s)) }
+        i !== exIdx ? ex : { ...ex, sets: ex.sets.map((s, j) => (j === setIdx ? { ...s, ...updates } : s)) }
       )
     );
   }
@@ -370,12 +374,19 @@ function RoutineExerciseCard({
 }: {
   ex: SelectedExercise;
   exIdx: number;
-  onUpdate: (exIdx: number, setIdx: number, reps: string) => void;
+  onUpdate: (exIdx: number, setIdx: number, updates: Partial<SetTarget>) => void;
   onAddSet: (id: string) => void;
   onRemoveSet: (id: string, setIdx: number) => void;
   onRemove: (id: string) => void;
   onUnlink: (id: string) => void;
 }) {
+  const showWeight = ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.logType);
+  const showReps = ex.logType !== "duration";
+  const weightLabel = ex.logType === "weighted_bodyweight" ? "+Weight" : ex.logType === "assisted_bodyweight" ? "Assist" : "Weight";
+  const colClass = showWeight && showReps
+    ? "grid-cols-[2rem_1fr_1fr_2rem]"
+    : "grid-cols-[2rem_1fr_2rem]";
+
   return (
     <ExerciseEditorCard
       id={ex.exerciseId}
@@ -406,21 +417,37 @@ function RoutineExerciseCard({
     >
       {/* Set rows */}
       <div className="space-y-1.5">
-        <div className="grid grid-cols-[2rem_1fr_2rem] gap-2 px-1">
+        <div className={`grid ${colClass} gap-2 px-1`}>
           <span className="text-xs text-muted-foreground text-center">Set</span>
-          <span className="text-xs text-muted-foreground">Target Reps</span>
+          {showWeight && showReps && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
+          {showWeight && !showReps && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
+          {showReps && <span className="text-xs text-muted-foreground text-center">{ex.logType === "duration" ? "Secs" : "Reps"}</span>}
         </div>
         {ex.sets.map((set, setIdx) => (
-          <div key={setIdx} className="grid grid-cols-[2rem_1fr_2rem] gap-2 items-center">
+          <div key={setIdx} className={`grid ${colClass} gap-2 items-center`}>
             <span className="text-xs font-medium text-center text-muted-foreground">{setIdx + 1}</span>
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="—"
-              value={set.reps}
-              onChange={(e) => onUpdate(exIdx, setIdx, e.target.value)}
-              className="h-8 text-sm"
-            />
+            {showWeight && (
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="—"
+                value={set.weight ?? ""}
+                onChange={(e) => onUpdate(exIdx, setIdx, { weight: e.target.value })}
+                onFocus={(e) => e.target.select()}
+                className="h-8 text-sm text-center"
+              />
+            )}
+            {(showReps || ex.logType === "duration") && (
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="—"
+                value={set.reps}
+                onChange={(e) => onUpdate(exIdx, setIdx, { reps: e.target.value })}
+                onFocus={(e) => e.target.select()}
+                className="h-8 text-sm text-center"
+              />
+            )}
             <span className="w-6" />
           </div>
         ))}

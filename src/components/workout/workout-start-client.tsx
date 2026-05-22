@@ -41,7 +41,7 @@ interface RoutineWithExercises extends Routine {
     position: number;
     default_sets: number;
     default_reps: number | null;
-    set_targets: Array<{ reps: string }> | null;
+    set_targets: Array<{ reps: string; weight?: string }> | null;
     superset_id: string | null;
     notes: string | null;
     exercises: { id: string; name: string; log_type: string; gif_url: string | null } | null;
@@ -106,7 +106,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           .filter((s) => s.exercise_id === re.exercise_id)
           .reduce<Record<number, LastSet>>((acc, s) => { acc[s.set_number] = s; return acc; }, {});
 
-        const setTemplates = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }));
+        const setTemplates: Array<{ reps: string; weight?: string }> = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }));
 
         return {
           exerciseId: re.exercise_id,
@@ -122,7 +122,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
               id: Math.random().toString(36).slice(2),
               setNumber: i + 1,
               reps: prev?.reps?.toString() ?? st.reps,
-              weight: prev?.weight?.toString() ?? "",
+              weight: prev?.weight?.toString() ?? st.weight ?? "",
               weightUnit: (prev?.weight_unit ?? defaultWeightUnit) as typeof defaultWeightUnit,
               isBodyweight: false,
               durationSeconds: prev?.duration_seconds?.toString() ?? "",
