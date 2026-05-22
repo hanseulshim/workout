@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, ClipboardList, History, TrendingUp, BookOpen, Settings, LogOut } from "lucide-react";
+import { Dumbbell, ClipboardList, History, TrendingUp, BookOpen, Settings, LogOut, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
@@ -32,9 +32,17 @@ export function BottomNav() {
       {menuOpen && (
         <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)}>
           <div
-            className="absolute bottom-16 right-3 bg-popover border rounded-xl shadow-lg p-2 min-w-[140px]"
+            className="absolute bottom-16 right-3 bg-popover border rounded-xl shadow-lg p-2 min-w-[180px]"
             onClick={(e) => e.stopPropagation()}
           >
+            <Link
+              href="/import"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <Upload className="h-4 w-4" />
+              Import from Hevy
+            </Link>
             <button
               onClick={() => { setMenuOpen(false); handleLogout(); }}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

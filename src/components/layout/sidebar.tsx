@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, ClipboardList, History, TrendingUp, BookOpen } from "lucide-react";
+import { Dumbbell, ClipboardList, History, TrendingUp, BookOpen, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/history", label: "History", icon: History },
   { href: "/progress", label: "Progress", icon: TrendingUp },
   { href: "/exercises", label: "Exercises", icon: BookOpen },
+  { href: "/import", label: "Import", icon: Upload },
 ];
 
 export function Sidebar() {
