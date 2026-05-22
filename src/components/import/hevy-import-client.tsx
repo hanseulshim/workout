@@ -503,10 +503,16 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Equipment qualifiers that don't change the exercise variant — safe to strip for matching.
+// "(Weighted)" is intentionally excluded: it indicates a different variant (weighted_bodyweight
+// vs bodyweight_reps) and should not be collapsed into the base exercise.
+const EQUIPMENT_QUALIFIERS =
+  /\s*\((Barbell|Dumbbell|Cable|Machine|Suspension|Band|Kettlebell|EZ Bar|Plate|Smith Machine)\)/gi;
+
 function normalizeName(value: string) {
   return value
     .trim()
-    .replace(/\s*\([^)]+\)/g, "") // strip "(Barbell)", "(Weighted)", etc.
+    .replace(EQUIPMENT_QUALIFIERS, "") // strip e.g. "(Barbell)", "(Dumbbell)"
     .replace(/-/g, " ") // "Chin-Up" → "Chin Up"
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -631,6 +637,8 @@ function parseHevyDate(value: string) {
 function inferLogType(row: HevyRow): LogType {
   if (row.duration_seconds && !row.reps) return "duration";
   if (!row.weight_lbs && row.reps) return "bodyweight_reps";
+  // "(Weighted)" in the name means added weight on a bodyweight exercise
+  if (/\(weighted\)/i.test(row.exercise_title)) return "weighted_bodyweight";
   return "weight_reps";
 }
 
