@@ -106,26 +106,30 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           .filter((s) => s.exercise_id === re.exercise_id)
           .reduce<Record<number, LastSet>>((acc, s) => { acc[s.set_number] = s; return acc; }, {});
 
+        const logType = (re.exercises?.log_type ?? "weight_reps") as LogType;
         const setTemplates: Array<{ reps: string; weight?: string }> = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }));
 
         return {
           exerciseId: re.exercise_id,
           exerciseName: re.exercises?.name ?? "Unknown",
           gifUrl: re.exercises?.gif_url ?? null,
-          logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
+          logType,
           supersetId: re.superset_id ?? null,
           restSeconds: 90,
           notes: re.notes ?? "",
           sets: setTemplates.map((st, i) => {
             const prev = prevSets[i + 1];
+            const isDuration = logType === "duration";
             return {
               id: Math.random().toString(36).slice(2),
               setNumber: i + 1,
-              reps: prev?.reps?.toString() ?? st.reps,
+              reps: prev?.reps?.toString() ?? (isDuration ? "" : st.reps),
               weight: prev?.weight?.toString() ?? st.weight ?? "",
               weightUnit: (prev?.weight_unit ?? defaultWeightUnit) as typeof defaultWeightUnit,
-              isBodyweight: false,
-              durationSeconds: prev?.duration_seconds?.toString() ?? "",
+              isBodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(logType),
+              durationSeconds: isDuration
+                ? (prev?.duration_seconds?.toString() ?? st.reps)
+                : (prev?.duration_seconds?.toString() ?? ""),
               completed: false,
             };
           }),

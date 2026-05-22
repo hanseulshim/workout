@@ -419,9 +419,8 @@ function RoutineExerciseCard({
       <div className="space-y-1.5">
         <div className={`grid ${colClass} gap-2 px-1`}>
           <span className="text-xs text-muted-foreground text-center">Set</span>
-          {showWeight && showReps && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
-          {showWeight && !showReps && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
-          {showReps && <span className="text-xs text-muted-foreground text-center">{ex.logType === "duration" ? "Secs" : "Reps"}</span>}
+          {showWeight && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
+          <span className="text-xs text-muted-foreground text-center">{ex.logType === "duration" ? "Secs" : "Reps"}</span>
         </div>
         {ex.sets.map((set, setIdx) => (
           <div key={setIdx} className={`grid ${colClass} gap-2 items-center`}>

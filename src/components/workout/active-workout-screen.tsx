@@ -199,7 +199,9 @@ export function ActiveWorkoutScreen() {
           const completedSets = ex.sets.filter((s) => s.completed);
           if (completedSets.length === 0) return;
           const newTargets = ex.sets.map((s) => ({
-            reps: s.completed && s.reps ? s.reps : (s.reps ?? ""),
+            reps: ex.logType === "duration"
+              ? (s.durationSeconds ?? "")
+              : (s.completed && s.reps ? s.reps : (s.reps ?? "")),
             weight: s.completed && s.weight ? s.weight : (s.weight ?? ""),
           }));
           await supabase
