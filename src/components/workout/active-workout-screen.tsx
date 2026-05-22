@@ -85,6 +85,7 @@ export function ActiveWorkoutScreen() {
     linkSuperset,
     unlinkSuperset,
     setExerciseRestTime,
+    setExerciseNotes,
   } = useWorkoutStore();
 
   const [finishing, setFinishing] = useState(false);
@@ -143,6 +144,7 @@ export function ActiveWorkoutScreen() {
         logType: exercise.log_type,
         supersetId: null,
         restSeconds: 90,
+        notes: "",
         sets: [{
           id: Math.random().toString(36).slice(2),
           setNumber: 1,
@@ -201,7 +203,7 @@ export function ActiveWorkoutScreen() {
           }));
           await supabase
             .from("routine_exercises")
-            .update({ set_targets: newTargets, default_sets: newTargets.length })
+            .update({ set_targets: newTargets, default_sets: newTargets.length, notes: ex.notes || null })
             .eq("routine_id", activeWorkout.routineId!)
             .eq("exercise_id", ex.exerciseId);
         })
@@ -287,6 +289,7 @@ export function ActiveWorkoutScreen() {
                       onRemoveExercise={() => removeExercise(group.ex.exerciseId)}
                       onSetRestTime={(s) => setExerciseRestTime(group.ex.exerciseId, s)}
                       onStartRest={(s) => startRestTimer(group.ex.exerciseId, s)}
+                      onSetNotes={(n) => setExerciseNotes(group.ex.exerciseId, n)}
                     />
                     {gi < groups.length - 1 && (
                       <SupersetLinkButton
@@ -313,6 +316,7 @@ export function ActiveWorkoutScreen() {
                           onRemoveExercise={() => removeExercise(ex.exerciseId)}
                           onSetRestTime={(s) => setExerciseRestTime(ex.exerciseId, s)}
                           onStartRest={(s) => startRestTimer(ex.exerciseId, s)}
+                          onSetNotes={(n) => setExerciseNotes(ex.exerciseId, n)}
                           onUnlinkSuperset={() => unlinkSuperset(ex.exerciseId)}
                         />
                       ))}
@@ -363,6 +367,7 @@ function ActiveExerciseCard({
   onRemoveExercise,
   onSetRestTime,
   onStartRest,
+  onSetNotes,
   onUnlinkSuperset,
 }: {
   exercise: ActiveExercise;
@@ -373,6 +378,7 @@ function ActiveExerciseCard({
   onRemoveExercise: () => void;
   onSetRestTime: (seconds: number) => void;
   onStartRest: (seconds: number) => void;
+  onSetNotes: (notes: string) => void;
   onUnlinkSuperset?: () => void;
 }) {
   const [showRestPicker, setShowRestPicker] = useState(false);
@@ -453,6 +459,19 @@ function ActiveExerciseCard({
           onToggleComplete={() => onToggleComplete(s.id)}
         />
       ))}
+      <textarea
+        value={exercise.notes}
+        onChange={(e) => onSetNotes(e.target.value)}
+        placeholder="Notes (carries over next session)"
+        rows={1}
+        className="w-full mt-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        style={{ minHeight: "2.25rem" }}
+        onInput={(e) => {
+          const t = e.currentTarget;
+          t.style.height = "auto";
+          t.style.height = t.scrollHeight + "px";
+        }}
+      />
     </ExerciseEditorCard>
   );
 }

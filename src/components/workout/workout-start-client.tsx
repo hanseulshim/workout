@@ -43,6 +43,7 @@ interface RoutineWithExercises extends Routine {
     default_reps: number | null;
     set_targets: Array<{ reps: string }> | null;
     superset_id: string | null;
+    notes: string | null;
     exercises: { id: string; name: string; log_type: string; gif_url: string | null } | null;
   }>;
 }
@@ -114,6 +115,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           logType: (re.exercises?.log_type ?? "weight_reps") as LogType,
           supersetId: re.superset_id ?? null,
           restSeconds: 90,
+          notes: re.notes ?? "",
           sets: setTemplates.map((st, i) => {
             const prev = prevSets[i + 1];
             return {

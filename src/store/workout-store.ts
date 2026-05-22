@@ -20,6 +20,7 @@ export interface ActiveExercise {
   logType: LogType;
   supersetId: string | null;
   restSeconds: number; // 0 = no auto-rest
+  notes: string;
   sets: ActiveSet[];
 }
 
@@ -46,6 +47,7 @@ interface WorkoutStore {
   updateSet: (exerciseId: string, setId: string, updates: Partial<ActiveSet>) => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
   setExerciseRestTime: (exerciseId: string, seconds: number) => void;
+  setExerciseNotes: (exerciseId: string, notes: string) => void;
   setSessionId: (id: string) => void;
   setDefaultWeightUnit: (unit: WeightUnit) => void;
   startRestTimer: (exerciseId: string, seconds?: number) => void;
@@ -186,6 +188,18 @@ export const useWorkoutStore = create<WorkoutStore>()(
                 ...state.activeWorkout,
                 exercises: state.activeWorkout.exercises.map((e) =>
                   e.exerciseId === exerciseId ? { ...e, restSeconds: seconds } : e
+                ),
+              }
+            : null,
+        })),
+
+      setExerciseNotes: (exerciseId, notes) =>
+        set((state) => ({
+          activeWorkout: state.activeWorkout
+            ? {
+                ...state.activeWorkout,
+                exercises: state.activeWorkout.exercises.map((e) =>
+                  e.exerciseId === exerciseId ? { ...e, notes } : e
                 ),
               }
             : null,
