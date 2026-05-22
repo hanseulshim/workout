@@ -229,7 +229,12 @@ export function ActiveWorkoutScreen() {
             }));
             const { error: routineErr } = await supabase
               .from("routine_exercises")
-              .update({ set_targets: newTargets, default_sets: newTargets.length, notes: ex.notes || null })
+              .update({
+                set_targets: newTargets,
+                default_sets: newTargets.length,
+                notes: ex.notes || null,
+                rest_seconds: ex.restSeconds > 0 ? ex.restSeconds : null,
+              })
               .eq("routine_id", activeWorkout.routineId!)
               .eq("exercise_id", ex.exerciseId);
             if (routineErr) throw routineErr;

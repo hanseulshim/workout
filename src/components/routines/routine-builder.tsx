@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Timer } from "lucide-react";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 import { ExerciseEditorCard, SupersetLinkButton, SupersetGroup } from "@/components/workout/exercise-editor-card";
 import type { Exercise, LogType } from "@/types/database";
@@ -40,6 +40,8 @@ interface RoutineExerciseRow {
   default_reps: number | null;
   set_targets: SetTarget[] | null;
   superset_id: string | null;
+  notes: string | null;
+  rest_seconds: number | null;
   exercises: Exercise | null;
 }
 
@@ -56,6 +58,8 @@ interface SelectedExercise {
   logType: LogType;
   sets: SetTarget[];
   supersetId: string | null;
+  notes: string;
+  restSeconds: number;
 }
 
 interface Props {
@@ -113,6 +117,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         logType: re.exercises?.log_type ?? "weight_reps",
         sets: re.set_targets ?? defaultSets(re.default_sets, re.default_reps),
         supersetId: re.superset_id ?? null,
+        notes: re.notes ?? "",
+        restSeconds: re.rest_seconds ?? 0,
       })) ?? [];
   }
 
@@ -158,6 +164,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
         logType: e.log_type,
         sets: defaultSets(3),
         supersetId: null,
+        notes: "",
+        restSeconds: 0,
       })),
     ]);
     setAddOpen(false);
@@ -225,6 +233,14 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
     });
   }
 
+  function updateNotes(exerciseId: string, notes: string) {
+    setSelected((prev) => prev.map((ex) => ex.exerciseId !== exerciseId ? ex : { ...ex, notes }));
+  }
+
+  function updateRestSeconds(exerciseId: string, restSeconds: number) {
+    setSelected((prev) => prev.map((ex) => ex.exerciseId !== exerciseId ? ex : { ...ex, restSeconds }));
+  }
+
   async function handleSave() {
     if (!name.trim()) { toast.error("Give your routine a name"); return; }
     if (selected.length === 0) { toast.error("Add at least one exercise"); return; }
@@ -238,6 +254,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
       default_reps: ex.sets[0]?.reps ? parseInt(ex.sets[0].reps) : null,
       set_targets: ex.sets,
       superset_id: ex.supersetId,
+      notes: ex.notes || null,
+      rest_seconds: ex.restSeconds > 0 ? ex.restSeconds : null,
     }));
 
     if (routine) {
@@ -284,6 +302,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
                       onRemoveSet={removeSet}
                       onRemove={removeExercise}
                       onUnlink={unlinkSuperset}
+                      onUpdateNotes={updateNotes}
+                      onUpdateRestSeconds={updateRestSeconds}
                     />
                     {gi < groups.length - 1 && (
                       <SupersetLinkButton
@@ -309,6 +329,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
                           onRemoveSet={removeSet}
                           onRemove={removeExercise}
                           onUnlink={unlinkSuperset}
+                          onUpdateNotes={updateNotes}
+                          onUpdateRestSeconds={updateRestSeconds}
                         />
                       ))}
                     </SupersetGroup>
@@ -363,6 +385,22 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   );
 }
 
+const REST_PRESETS = [
+  { label: "Off", seconds: 0 },
+  { label: "30s", seconds: 30 },
+  { label: "1m", seconds: 60 },
+  { label: "1:30", seconds: 90 },
+  { label: "2m", seconds: 120 },
+  { label: "3m", seconds: 180 },
+];
+
+function formatRest(s: number) {
+  if (s === 0) return "Off";
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), rem = s % 60;
+  return rem === 0 ? `${m}m` : `${m}:${String(rem).padStart(2, "0")}`;
+}
+
 function RoutineExerciseCard({
   ex,
   exIdx,
@@ -371,6 +409,8 @@ function RoutineExerciseCard({
   onRemoveSet,
   onRemove,
   onUnlink,
+  onUpdateNotes,
+  onUpdateRestSeconds,
 }: {
   ex: SelectedExercise;
   exIdx: number;
@@ -379,6 +419,8 @@ function RoutineExerciseCard({
   onRemoveSet: (id: string, setIdx: number) => void;
   onRemove: (id: string) => void;
   onUnlink: (id: string) => void;
+  onUpdateNotes: (id: string, notes: string) => void;
+  onUpdateRestSeconds: (id: string, seconds: number) => void;
 }) {
   const showWeight = ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.logType);
   const showReps = ex.logType !== "duration";
@@ -397,21 +439,58 @@ function RoutineExerciseCard({
       onRemove={() => onRemove(ex.exerciseId)}
       onUnlinkSuperset={ex.supersetId ? () => onUnlink(ex.exerciseId) : undefined}
       footer={
-        <div className="flex gap-2">
-          <button
-            onClick={() => onAddSet(ex.exerciseId)}
-            className="flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-dashed rounded-md"
-          >
-            + Add Set
-          </button>
-          {ex.sets.length > 1 && (
+        <div className="space-y-2">
+          <div className="flex gap-2">
             <button
-              onClick={() => onRemoveSet(ex.exerciseId, ex.sets.length - 1)}
-              className="px-3 py-1.5 border border-dashed rounded-md text-muted-foreground hover:text-destructive transition-colors"
+              onClick={() => onAddSet(ex.exerciseId)}
+              className="flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-dashed rounded-md"
             >
-              <Trash2 className="h-3 w-3" />
+              + Add Set
             </button>
-          )}
+            {ex.sets.length > 1 && (
+              <button
+                onClick={() => onRemoveSet(ex.exerciseId, ex.sets.length - 1)}
+                className="px-3 py-1.5 border border-dashed rounded-md text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          {/* Rest timer picker */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Timer className="h-3 w-3" />Rest:
+            </span>
+            {REST_PRESETS.map((p) => (
+              <button
+                key={p.seconds}
+                type="button"
+                onClick={() => onUpdateRestSeconds(ex.exerciseId, p.seconds)}
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded border transition-colors",
+                  ex.restSeconds === p.seconds
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "hover:bg-muted border-input"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {/* Notes */}
+          <textarea
+            value={ex.notes}
+            onChange={(e) => onUpdateNotes(ex.exerciseId, e.target.value)}
+            placeholder="Notes (e.g. cues, rep range, tempo)"
+            rows={1}
+            className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            style={{ minHeight: "2.25rem" }}
+            onInput={(e) => {
+              const t = e.currentTarget;
+              t.style.height = "auto";
+              t.style.height = `${t.scrollHeight}px`;
+            }}
+          />
         </div>
       }
     >

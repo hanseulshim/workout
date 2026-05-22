@@ -43,6 +43,7 @@ interface RoutineWithExercises extends Routine {
     default_reps: number | null;
     set_targets: Array<{ reps: string; weight?: string }> | null;
     superset_id: string | null;
+    rest_seconds: number | null;
     notes: string | null;
     exercises: { id: string; name: string; log_type: string; gif_url: string | null } | null;
   }>;
@@ -117,7 +118,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           gifUrl: re.exercises?.gif_url ?? null,
           logType,
           supersetId: re.superset_id ?? null,
-          restSeconds: 90,
+          restSeconds: re.rest_seconds ?? 90,
           notes: re.notes ?? "",
           bestWeight: best.weight,
           bestReps: best.reps,
