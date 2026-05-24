@@ -22,7 +22,7 @@ export default async function ExerciseProgressPage({ params }: { params: Promise
   // Get all sets for this exercise by this user, with session date
   const { data: sets } = await supabase
     .from("workout_sets")
-    .select(`*, workout_sessions!inner(started_at, user_id)`)
+    .select(`id, weight, reps, duration_seconds, weight_unit, completed_at, workout_sessions!inner(started_at, user_id)`)
     .eq("exercise_id", exerciseId)
     .eq("workout_sessions.user_id", user!.id)
     .order("completed_at", { ascending: true });
