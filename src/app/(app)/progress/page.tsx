@@ -45,19 +45,20 @@ export default async function ProgressPage() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const exerciseIds = exercises.map((exercise) => exercise.id);
-  const lastSetByExercise: Record<string, { weight: number | null; reps: number | null; weight_unit: string; log_type: string }> = {};
+  const lastSetByExercise: Record<string, { weight: number | null; reps: number | null; duration_seconds: number | null; weight_unit: string; log_type: string }> = {};
   if (exerciseIds.length > 0) {
     type RecentSet = {
       exercise_id: string;
       weight: number | null;
       reps: number | null;
+      duration_seconds: number | null;
       weight_unit: string;
       exercises: { log_type: string } | { log_type: string }[] | null;
     };
 
     const { data: recentSets } = await supabase
       .from("workout_sets")
-      .select("exercise_id, weight, reps, weight_unit, completed_at, exercises(log_type), workout_sessions!inner(user_id)")
+      .select("exercise_id, weight, reps, duration_seconds, weight_unit, completed_at, exercises(log_type), workout_sessions!inner(user_id)")
       .in("exercise_id", exerciseIds)
       .eq("workout_sessions.user_id", user!.id)
       .order("completed_at", { ascending: false })
@@ -69,6 +70,7 @@ export default async function ProgressPage() {
         lastSetByExercise[setItem.exercise_id] = {
           weight: setItem.weight,
           reps: setItem.reps,
+          duration_seconds: setItem.duration_seconds,
           weight_unit: setItem.weight_unit,
           log_type: exercise?.log_type ?? "weight_reps",
         };
@@ -98,10 +100,12 @@ export default async function ProgressPage() {
                     const last = lastSetByExercise[ex.id];
                     if (!last) return null;
                     let label = "";
-                    if (last.log_type === "duration" && last.reps) label = `Last: ${last.reps}s`;
-                    else if (last.log_type === "bodyweight_reps" && last.reps) label = `Last: ${last.reps} reps`;
+                    if (last.log_type === "duration" && last.duration_seconds) {
+                      const s = last.duration_seconds;
+                      label = `Last: ${s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`}`;
+                    } else if (last.log_type === "bodyweight_reps" && last.reps) label = `Last: ${last.reps} reps`;
                     else if (last.weight && last.reps) label = `Last: ${last.weight} ${last.weight_unit} × ${last.reps}`;
-                    else if (last.weight) label = `Last: ${last.weight} ${last.weight_unit}`;
+                    else if (last.reps) label = `Last: ${last.reps} reps`;
                     if (!label) return null;
                     return <p className="mt-1 text-xs text-muted-foreground">{label}</p>;
                   })()}

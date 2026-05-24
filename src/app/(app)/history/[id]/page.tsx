@@ -152,7 +152,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
                         <div key={s.id} className="grid grid-cols-3 text-sm">
                           <span className="text-muted-foreground">{s.set_number}</span>
                           <span className="text-center">
-                            {s.is_bodyweight ? "BW" : s.weight ? `${s.weight} ${s.weight_unit}` : "—"}
+                            {s.weight ? `${s.weight} ${s.weight_unit}` : s.is_bodyweight ? "BW" : "—"}
                           </span>
                           <span className="text-center">{s.reps ?? "—"}</span>
                         </div>
