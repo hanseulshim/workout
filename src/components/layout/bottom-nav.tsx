@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Dumbbell, ClipboardList, History, TrendingUp, BookOpen, Settings, LogOut, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useWorkoutStore } from "@/store/workout-store";
 import { useState } from "react";
 
 const navItems = [
@@ -18,11 +19,13 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { endWorkout } = useWorkoutStore();
   const [menuOpen, setMenuOpen] = useState(false);
 
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    endWorkout();
     router.push("/auth/login");
     router.refresh();
   }

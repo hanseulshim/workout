@@ -9,6 +9,8 @@ import { format } from "date-fns";
 import { RoutineVolumeChart } from "@/components/routines/routine-volume-chart";
 import { RoutineDeleteButton } from "@/components/routines/routine-delete-button";
 import { SessionHistoryList } from "@/components/routines/session-history-list";
+export const metadata = { title: "Routine | Workout" };
+
 
 export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,12 +48,15 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   // Fetch volume data for each session
   const sessionIds = (sessions ?? []).map((s) => s.id);
   const volumeBySession: { date: string; volume: number; reps: number }[] = [];
+  let weightUnit = "lbs";
 
   if (sessionIds.length > 0) {
     const { data: sets } = await supabase
       .from("workout_sets")
-      .select("session_id, weight, reps, completed_at")
+      .select("session_id, weight, reps, completed_at, weight_unit")
       .in("session_id", sessionIds);
+
+    weightUnit = (sets ?? []).find((setRow) => setRow.weight_unit)?.weight_unit ?? "lbs";
 
     const bySession = new Map<string, { volume: number; reps: number }>();
     for (const s of sets ?? []) {
@@ -138,7 +143,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
             <CardTitle className="text-base">Volume Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <RoutineVolumeChart data={volumeBySession} />
+            <RoutineVolumeChart data={volumeBySession} weightUnit={weightUnit} />
           </CardContent>
         </Card>
       )}

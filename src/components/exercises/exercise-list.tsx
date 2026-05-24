@@ -50,6 +50,15 @@ interface Props {
   selectable?: boolean;
 }
 
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 py-2">{label}</p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
 export function ExerciseList({ exercises: initial, userId, onSelect, selectable = false }: Props) {
   const [exercises, setExercises] = useState(initial);
   const [search, setSearch] = useState("");
@@ -191,15 +200,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
           </div>
         </CardContent>
       </Card>
-    );
-  }
-
-  function Section({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-      <div className="mb-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 py-2">{label}</p>
-        <div className="space-y-1">{children}</div>
-      </div>
     );
   }
 
@@ -548,11 +548,11 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
 
       {/* Exercise list */}
       <div className="flex-1 overflow-y-auto px-4 pb-safe">
-        {filtered.length === 0 && (
+        {exercises.length === 0 && search.trim() === "" ? (
           <p className="text-muted-foreground text-sm text-center py-8">No exercises found.</p>
-        )}
-
-        {isFiltering ? (
+        ) : filtered.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-8">No exercises found.</p>
+        ) : isFiltering ? (
           <div className="space-y-1 py-2">
             {allExercises.map((ex) => <ExerciseCard key={ex.id} ex={ex} />)}
           </div>

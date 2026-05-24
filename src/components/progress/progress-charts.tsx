@@ -50,7 +50,7 @@ function formatSet(s: SetRow): string {
       ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`
       : `${sec}s`;
   }
-  if (s.weight) return `${s.weight} × ${s.reps}`;
+  if (s.weight) return `${s.weight} ${s.weight_unit} × ${s.reps}`;
   return `${s.reps} reps`;
 }
 
@@ -105,6 +105,11 @@ export function ProgressCharts({ sets }: Props) {
   const allTimeMax = Math.max(...data.map((d) => d.maxWeight));
   const allTimeMaxReps = Math.max(...data.map((d) => d.maxReps));
   const allTimeMaxDuration = Math.max(...data.map((d) => d.maxDuration));
+  const bestWeightSet = sets.reduce<SetRow | null>((best, setRow) => {
+    if (setRow.weight == null) return best;
+    if (!best || (best.weight ?? 0) < setRow.weight) return setRow;
+    return best;
+  }, null);
 
   function formatDuration(sec: number) {
     return sec >= 60
@@ -123,7 +128,7 @@ export function ProgressCharts({ sets }: Props) {
         <Badge className="flex items-center gap-1">
           <Trophy className="h-3 w-3" />
           {hasWeight
-            ? `Best: ${allTimeMax} lbs × ${allTimeMaxReps} reps`
+            ? `Best: ${allTimeMax} ${bestWeightSet?.weight_unit ?? "lbs"} × ${allTimeMaxReps} reps`
             : hasDuration
               ? `Best hold: ${formatDuration(allTimeMaxDuration)}`
               : `Best: ${allTimeMaxReps} reps`}

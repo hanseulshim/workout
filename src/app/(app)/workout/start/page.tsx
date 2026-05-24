@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { WorkoutStartClient } from "@/components/workout/workout-start-client";
+export const metadata = { title: "Start Workout | Workout" };
+
 
 export default async function WorkoutStartPage({
   searchParams,

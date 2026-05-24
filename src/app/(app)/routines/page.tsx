@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Pencil, Play } from "lucide-react";
+export const metadata = { title: "Routines | Workout" };
+
 
 export default async function RoutinesPage() {
   const supabase = await createClient();

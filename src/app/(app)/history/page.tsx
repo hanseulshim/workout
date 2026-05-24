@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ChevronRight } from "lucide-react";
 import { formatDistanceToNow, differenceInMinutes } from "date-fns";
+export const metadata = { title: "History | Workout" };
+
 
 export default async function HistoryPage() {
   const supabase = await createClient();

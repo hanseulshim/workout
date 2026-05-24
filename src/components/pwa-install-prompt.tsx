@@ -12,22 +12,21 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function PwaInstallPrompt() {
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [dismissed, setDismissed] = useState(false);
-  const [isIos, setIsIos] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("pwa-install-dismissed") !== null
+  );
+  const [isIos] = useState(
+    () => typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent)
+  );
+  const [isStandalone] = useState(
+    () =>
+      typeof window !== "undefined" && (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true)
+      )
+  );
 
   useEffect(() => {
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true);
-
-    setIsIos(ios);
-    setIsStandalone(standalone);
-
-    const stored = localStorage.getItem("pwa-install-dismissed");
-    if (stored) setDismissed(true);
-
     const handler = (e: Event) => {
       e.preventDefault();
       setPrompt(e as BeforeInstallPromptEvent);

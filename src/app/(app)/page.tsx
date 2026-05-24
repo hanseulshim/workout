@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, Play, Clock, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+export const metadata = { title: "Dashboard | Workout" };
+
 
 export default async function DashboardPage() {
   const supabase = await createClient();

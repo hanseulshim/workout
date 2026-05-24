@@ -87,6 +87,32 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
     setStarting(true);
     const supabase = createClient();
     const finalName = name ?? workoutName;
+    const startedAfter = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    let existingQuery = supabase
+      .from("workout_sessions")
+      .select("id")
+      .eq("user_id", userId)
+      .is("finished_at", null)
+      .gte("started_at", startedAfter);
+
+    existingQuery = routine?.id
+      ? existingQuery.eq("routine_id", routine.id)
+      : existingQuery.is("routine_id", null);
+
+    const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+
+    if (existingError) {
+      toast.error("Failed to start workout");
+      setStarting(false);
+      return;
+    }
+
+    if (existing) {
+      router.push(`/workout/${existing.id}`);
+      setStarting(false);
+      return;
+    }
 
     const { data: session, error } = await supabase
       .from("workout_sessions")
@@ -227,8 +253,9 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
                   </button>
                   <button
                     onClick={() => router.push(`/workout/start?routine=${r.id}`)}
-                    className="shrink-0 p-2 rounded-md hover:bg-primary hover:text-primary-foreground text-muted-foreground transition-colors"
+                    className="shrink-0 min-h-[44px] min-w-[44px] rounded-md hover:bg-primary hover:text-primary-foreground text-muted-foreground transition-colors"
                     title="Start workout"
+                    aria-label={`Start ${r.name}`}
                   >
                     <Play className="h-4 w-4" />
                   </button>

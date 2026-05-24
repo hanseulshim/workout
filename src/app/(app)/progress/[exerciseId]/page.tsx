@@ -5,6 +5,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft } from "lucide-react";
+export const metadata = { title: "Exercise Progress | Workout" };
+
 
 export default async function ExerciseProgressPage({ params }: { params: Promise<{ exerciseId: string }> }) {
   const { exerciseId } = await params;

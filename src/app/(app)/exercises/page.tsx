@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ExerciseList } from "@/components/exercises/exercise-list";
+export const metadata = { title: "Exercises | Workout" };
+
 
 export default async function ExercisesPage() {
   const supabase = await createClient();

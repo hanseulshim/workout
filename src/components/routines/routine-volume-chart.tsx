@@ -19,11 +19,12 @@ interface DataPoint {
 
 interface Props {
   data: DataPoint[];
+  weightUnit?: string;
 }
 
 type Metric = "volume" | "reps";
 
-export function RoutineVolumeChart({ data }: Props) {
+export function RoutineVolumeChart({ data, weightUnit = "lbs" }: Props) {
   const [metric, setMetric] = useState<Metric>("volume");
 
   return (
@@ -39,7 +40,7 @@ export function RoutineVolumeChart({ data }: Props) {
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {m === "volume" ? "Volume (lbs)" : "Total Reps"}
+            {m === "volume" ? `Volume (${weightUnit})` : "Total Reps"}
           </button>
         ))}
       </div>
@@ -61,7 +62,7 @@ export function RoutineVolumeChart({ data }: Props) {
             }}
             formatter={(value) =>
               metric === "volume"
-                ? [`${Number(value).toLocaleString()} lbs`, "Volume"]
+                ? [`${Number(value).toLocaleString()} ${weightUnit}`, "Volume"]
                 : [value, "Reps"]
             }
           />

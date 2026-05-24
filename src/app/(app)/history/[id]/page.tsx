@@ -8,6 +8,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WorkoutSession } from "@/types/database";
+export const metadata = { title: "Workout Detail | Workout" };
+
 
 export default async function WorkoutDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -61,6 +63,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
     (sum, s) => sum + (s.weight ?? 0) * (s.reps ?? 0),
     0
   );
+  const volumeUnit = (sets ?? []).find((s) => s.weight != null)?.weight_unit ?? "lbs";
 
   return (
     <div className="space-y-4">
@@ -84,7 +87,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
         )}
         {totalVolume > 0 && (
           <Badge variant="secondary">
-            {totalVolume.toLocaleString()} lbs total volume
+            {totalVolume.toLocaleString()} {volumeUnit} total volume
           </Badge>
         )}
       </div>

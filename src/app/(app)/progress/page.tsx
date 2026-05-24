@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
 import type { MuscleGroup } from "@/types/database";
+export const metadata = { title: "Progress | Workout" };
+
 
 const muscleGroupLabels: Record<MuscleGroup, string> = {
   chest: "Chest", back: "Back", shoulders: "Shoulders",

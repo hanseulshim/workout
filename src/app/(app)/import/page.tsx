@@ -1,5 +1,7 @@
 import { HevyImportClient } from "@/components/import/hevy-import-client";
 import { createClient } from "@/lib/supabase/server";
+export const metadata = { title: "Import | Workout" };
+
 
 export default async function ImportPage() {
   const supabase = await createClient();

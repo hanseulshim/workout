@@ -1,5 +1,7 @@
 import { RoutineBuilder } from "@/components/routines/routine-builder";
 import { createClient } from "@/lib/supabase/server";
+export const metadata = { title: "New Routine | Workout" };
+
 
 export default async function NewRoutinePage() {
   const supabase = await createClient();

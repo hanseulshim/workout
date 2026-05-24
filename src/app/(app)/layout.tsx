@@ -6,19 +6,19 @@ import { ActiveWorkoutBanner } from "@/components/workout/active-workout-banner"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="h-dvh">
       <Sidebar />
-      <div className="md:pl-56 flex flex-col min-h-screen">
+      <div className="flex h-dvh flex-col md:pl-56">
         <Header />
         <ActiveWorkoutBanner />
         <PwaInstallPrompt />
-        <main className="flex-1 px-4 pt-4 pb-24 md:pb-8 md:px-8">
+        <main className="flex-1 overflow-y-auto px-4 pt-4 pb-24 md:pb-8 md:px-8">
           <div className="max-w-4xl mx-auto">
             {children}
           </div>
         </main>
+        <BottomNav />
       </div>
-      <BottomNav />
     </div>
   );
 }

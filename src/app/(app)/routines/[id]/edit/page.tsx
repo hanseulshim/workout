@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { RoutineBuilder } from "@/components/routines/routine-builder";
+export const metadata = { title: "Edit Routine | Workout" };
+
 
 export const dynamic = "force-dynamic";
 
