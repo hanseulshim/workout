@@ -79,6 +79,7 @@ export interface Database {
           name: string;
           created_at: string;
           updated_at: string;
+          last_used_at: string | null;
         };
         Insert: {
           id?: string;
@@ -86,6 +87,7 @@ export interface Database {
           name: string;
           created_at?: string;
           updated_at?: string;
+          last_used_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["routines"]["Insert"]>;
       };
@@ -98,9 +100,10 @@ export interface Database {
           default_sets: number;
           default_reps: number | null;
           default_weight: number | null;
-          set_targets: Array<{ reps: string }> | null;
+          set_targets: Array<{ reps: string; weight?: string }> | null;
           superset_id: string | null;
           notes: string | null;
+          rest_seconds: number | null;
         };
         Insert: {
           id?: string;
@@ -110,9 +113,10 @@ export interface Database {
           default_sets?: number;
           default_reps?: number | null;
           default_weight?: number | null;
-          set_targets?: Array<{ reps: string }> | null;
+          set_targets?: Array<{ reps: string; weight?: string }> | null;
           superset_id?: string | null;
           notes?: string | null;
+          rest_seconds?: number | null;
         };
         Update: Partial<Database["public"]["Tables"]["routine_exercises"]["Insert"]>;
       };
@@ -179,7 +183,6 @@ export interface Database {
   };
 }
 
-// Convenience row types
 export type Exercise = Database["public"]["Tables"]["exercises"]["Row"];
 export type Routine = Database["public"]["Tables"]["routines"]["Row"];
 export type RoutineExercise = Database["public"]["Tables"]["routine_exercises"]["Row"];

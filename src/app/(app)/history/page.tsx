@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +11,17 @@ export const metadata = { title: "History | Workout" };
 export default async function HistoryPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
-  const { data: sessions } = await supabase
+  const { data: sessions, error } = await supabase
     .from("workout_sessions")
     .select("*, workout_sets(count)")
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
     .not("finished_at", "is", null)
     .order("started_at", { ascending: false })
     .limit(50);
+
+  if (error) throw error;
 
   // Filter out any sessions with 0 sets (safety net for orphaned sessions)
   const validSessions = (sessions ?? []).filter(

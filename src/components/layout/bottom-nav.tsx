@@ -22,6 +22,10 @@ export function BottomNav() {
   const { endWorkout } = useWorkoutStore();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") setMenuOpen(false);
+  }
+
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -33,7 +37,14 @@ export function BottomNav() {
   return (
     <>
       {menuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)}>
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setMenuOpen(false)}
+          onKeyDown={handleKeyDown}
+          role="dialog"
+          aria-modal="true"
+          aria-label="More options menu"
+        >
           <div
             className="absolute bottom-16 right-3 bg-popover border rounded-xl shadow-lg p-2 min-w-[180px]"
             onClick={(e) => e.stopPropagation()}
@@ -77,6 +88,9 @@ export function BottomNav() {
           })}
           <button
             onClick={() => setMenuOpen((o) => !o)}
+            aria-label="More options"
+            aria-expanded={menuOpen}
+            aria-haspopup="dialog"
             className={cn(
               "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[52px]",
               menuOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"

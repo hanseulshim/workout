@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { WeightUnit, LogType } from "@/types/database";
+import type { LogType, WeightUnit } from "@/types/database";
 
 export interface ActiveSet {
   id: string;
@@ -19,10 +19,11 @@ export interface ActiveExercise {
   gifUrl: string | null;
   logType: LogType;
   supersetId: string | null;
-  restSeconds: number; // 0 = no auto-rest
+  restSeconds: number;
   notes: string;
   bestWeight: number | null;
   bestReps: number | null;
+  bestDuration: number | null;
   sets: ActiveSet[];
 }
 
@@ -34,10 +35,18 @@ export interface ActiveWorkout {
   exercises: ActiveExercise[];
 }
 
+export interface RestTimerState {
+  active: boolean;
+  paused: boolean;
+  seconds: number;
+  exerciseId: string | null;
+  endsAt: number | null;
+}
+
 interface WorkoutStore {
   activeWorkout: ActiveWorkout | null;
   defaultWeightUnit: WeightUnit;
-  restTimer: { active: boolean; paused: boolean; seconds: number; exerciseId: string | null };
+  restTimer: RestTimerState;
   newPr: { exerciseName: string; value: string } | null;
 
   startWorkout: (workout: ActiveWorkout) => void;
@@ -48,22 +57,73 @@ interface WorkoutStore {
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateSet: (exerciseId: string, setId: string, updates: Partial<ActiveSet>) => void;
-  toggleSetComplete: (exerciseId: string, setId: string) => void;
+  toggleSetComplete: (exerciseId: string, setId: string) => boolean;
   setExerciseRestTime: (exerciseId: string, seconds: number) => void;
   setExerciseNotes: (exerciseId: string, notes: string) => void;
   setSessionId: (id: string) => void;
   setDefaultWeightUnit: (unit: WeightUnit) => void;
+  convertWeightUnit: (unit: WeightUnit) => void;
   startRestTimer: (exerciseId: string, seconds?: number) => void;
   pauseRestTimer: () => void;
-  tickRestTimer: () => void;
   stopRestTimer: () => void;
   clearPr: () => void;
   linkSuperset: (exerciseId1: string, exerciseId2: string) => void;
   unlinkSuperset: (exerciseId: string) => void;
 }
 
+const DEFAULT_REST_SECONDS = 90;
+
 function makeSetId() {
   return Math.random().toString(36).slice(2);
+}
+
+function parsePositiveInt(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseNonNegativeFloat(value: string) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function formatWeight(value: number) {
+  return value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
+function convertWeightValue(value: string, unit: WeightUnit) {
+  if (value.trim() === "") return value;
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return value;
+  const converted = unit === "kg" ? parsed * 0.453592 : parsed * 2.20462;
+  return formatWeight(converted);
+}
+
+function getRemainingSeconds(timer: RestTimerState) {
+  if (!timer.active) return 0;
+  if (timer.paused || timer.endsAt === null) return timer.seconds;
+  return Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000));
+}
+
+function isSetValid(logType: LogType, setItem: ActiveSet) {
+  const reps = parsePositiveInt(setItem.reps);
+  const weight = parseNonNegativeFloat(setItem.weight);
+  const duration = parsePositiveInt(setItem.durationSeconds);
+
+  switch (logType) {
+    case "weight_reps":
+      return weight !== null && weight > 0 && reps !== null;
+    case "bodyweight_reps":
+      return reps !== null;
+    case "weighted_bodyweight":
+      return reps !== null && weight !== null;
+    case "duration":
+      return duration !== null;
+    case "assisted_bodyweight":
+      return reps !== null;
+    default:
+      return true;
+  }
 }
 
 export const useWorkoutStore = create<WorkoutStore>()(
@@ -71,15 +131,28 @@ export const useWorkoutStore = create<WorkoutStore>()(
     (set, get) => ({
       activeWorkout: null,
       defaultWeightUnit: "lbs",
-      restTimer: { active: false, paused: false, seconds: 90, exerciseId: null },
+      restTimer: {
+        active: false,
+        paused: false,
+        seconds: DEFAULT_REST_SECONDS,
+        exerciseId: null,
+        endsAt: null,
+      },
       newPr: null,
 
       startWorkout: (workout) => set({ activeWorkout: workout }),
-      endWorkout: () => set({
-        activeWorkout: null,
-        restTimer: { active: false, paused: false, seconds: 90, exerciseId: null },
-        newPr: null,
-      }),
+      endWorkout: () =>
+        set({
+          activeWorkout: null,
+          restTimer: {
+            active: false,
+            paused: false,
+            seconds: DEFAULT_REST_SECONDS,
+            exerciseId: null,
+            endsAt: null,
+          },
+          newPr: null,
+        }),
 
       addExercise: (exercise) =>
         set((state) => ({
@@ -93,7 +166,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
           activeWorkout: state.activeWorkout
             ? {
                 ...state.activeWorkout,
-                exercises: state.activeWorkout.exercises.filter((e) => e.exerciseId !== exerciseId),
+                exercises: state.activeWorkout.exercises.filter((exercise) => exercise.exerciseId !== exerciseId),
               }
             : null,
         })),
@@ -101,11 +174,11 @@ export const useWorkoutStore = create<WorkoutStore>()(
       reorderExercises: (orderedIds) =>
         set((state) => {
           if (!state.activeWorkout) return {};
-          const map = new Map(state.activeWorkout.exercises.map((e) => [e.exerciseId, e]));
+          const exerciseMap = new Map(state.activeWorkout.exercises.map((exercise) => [exercise.exerciseId, exercise]));
           return {
             activeWorkout: {
               ...state.activeWorkout,
-              exercises: orderedIds.map((id) => map.get(id)!).filter(Boolean),
+              exercises: orderedIds.map((id) => exerciseMap.get(id)).filter((ex): ex is ActiveExercise => ex !== undefined),
             },
           };
         }),
@@ -116,12 +189,12 @@ export const useWorkoutStore = create<WorkoutStore>()(
           return {
             activeWorkout: {
               ...state.activeWorkout,
-              exercises: state.activeWorkout.exercises.map((ex) => {
-                if (ex.exerciseId !== exerciseId) return ex;
-                const lastSet = ex.sets[ex.sets.length - 1];
+              exercises: state.activeWorkout.exercises.map((exercise) => {
+                if (exercise.exerciseId !== exerciseId) return exercise;
+                const lastSet = exercise.sets[exercise.sets.length - 1];
                 const newSet: ActiveSet = {
                   id: makeSetId(),
-                  setNumber: ex.sets.length + 1,
+                  setNumber: exercise.sets.length + 1,
                   reps: lastSet?.reps ?? "",
                   weight: lastSet?.weight ?? "",
                   weightUnit: lastSet?.weightUnit ?? get().defaultWeightUnit,
@@ -129,7 +202,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
                   durationSeconds: lastSet?.durationSeconds ?? "",
                   completed: false,
                 };
-                return { ...ex, sets: [...ex.sets, newSet] };
+                return { ...exercise, sets: [...exercise.sets, newSet] };
               }),
             },
           };
@@ -140,14 +213,14 @@ export const useWorkoutStore = create<WorkoutStore>()(
           activeWorkout: state.activeWorkout
             ? {
                 ...state.activeWorkout,
-                exercises: state.activeWorkout.exercises.map((ex) =>
-                  ex.exerciseId !== exerciseId
-                    ? ex
+                exercises: state.activeWorkout.exercises.map((exercise) =>
+                  exercise.exerciseId !== exerciseId
+                    ? exercise
                     : {
-                        ...ex,
-                        sets: ex.sets
-                          .filter((s) => s.id !== setId)
-                          .map((s, i) => ({ ...s, setNumber: i + 1 })),
+                        ...exercise,
+                        sets: exercise.sets
+                          .filter((setItem) => setItem.id !== setId)
+                          .map((setItem, index) => ({ ...setItem, setNumber: index + 1 })),
                       }
                 ),
               }
@@ -159,10 +232,15 @@ export const useWorkoutStore = create<WorkoutStore>()(
           activeWorkout: state.activeWorkout
             ? {
                 ...state.activeWorkout,
-                exercises: state.activeWorkout.exercises.map((ex) =>
-                  ex.exerciseId !== exerciseId
-                    ? ex
-                    : { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, ...updates } : s)) }
+                exercises: state.activeWorkout.exercises.map((exercise) =>
+                  exercise.exerciseId !== exerciseId
+                    ? exercise
+                    : {
+                        ...exercise,
+                        sets: exercise.sets.map((setItem) =>
+                          setItem.id === setId ? { ...setItem, ...updates } : setItem
+                        ),
+                      }
                 ),
               }
             : null,
@@ -170,45 +248,85 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
       toggleSetComplete: (exerciseId, setId) => {
         const { activeWorkout } = get();
-        if (!activeWorkout) return;
-        const ex = activeWorkout.exercises.find((exercise) => exercise.exerciseId === exerciseId);
-        const wasCompleted = ex?.sets.find((setItem) => setItem.id === setId)?.completed ?? false;
+        if (!activeWorkout) return false;
+
+        const exercise = activeWorkout.exercises.find((item) => item.exerciseId === exerciseId);
+        const setItem = exercise?.sets.find((item) => item.id === setId);
+        if (!exercise || !setItem) return false;
+
+        const completing = !setItem.completed;
+        if (completing && !isSetValid(exercise.logType, setItem)) {
+          return false;
+        }
 
         set((state) => {
           if (!state.activeWorkout) return {};
-          let newPr = state.newPr;
-          const exercises = state.activeWorkout.exercises.map((exercise) => {
-            if (exercise.exerciseId !== exerciseId) return exercise;
-            const sets = exercise.sets.map((setItem) => {
-              if (setItem.id !== setId) return setItem;
-              const completing = !setItem.completed;
-              if (completing) {
-                const weight = setItem.weight ? parseFloat(setItem.weight) : null;
-                const reps = setItem.reps ? parseInt(setItem.reps) : null;
-                if (weight !== null && exercise.bestWeight !== null && weight > exercise.bestWeight) {
-                  newPr = { exerciseName: exercise.exerciseName, value: `${weight} ${setItem.weightUnit}` };
-                } else if (exercise.bestWeight === null && weight !== null && weight > 0) {
-                  newPr = { exerciseName: exercise.exerciseName, value: `${weight} ${setItem.weightUnit}` };
-                } else if (exercise.logType === "bodyweight_reps" && reps !== null && exercise.bestReps !== null && reps > exercise.bestReps) {
-                  newPr = { exerciseName: exercise.exerciseName, value: `${reps} reps` };
-                } else if (exercise.logType === "bodyweight_reps" && exercise.bestReps === null && reps !== null && reps > 0) {
-                  newPr = { exerciseName: exercise.exerciseName, value: `${reps} reps` };
+          let nextPr = state.newPr;
+
+          const exercises = state.activeWorkout.exercises.map((currentExercise) => {
+            if (currentExercise.exerciseId !== exerciseId) return currentExercise;
+
+            let bestWeight = currentExercise.bestWeight;
+            let bestReps = currentExercise.bestReps;
+            let bestDuration = currentExercise.bestDuration;
+
+            const sets = currentExercise.sets.map((currentSet) => {
+              if (currentSet.id !== setId) return currentSet;
+              if (!completing) return { ...currentSet, completed: false };
+
+              const weight = parseNonNegativeFloat(currentSet.weight);
+              const reps = parsePositiveInt(currentSet.reps);
+              const duration = parsePositiveInt(currentSet.durationSeconds);
+
+              if (["weight_reps", "weighted_bodyweight"].includes(currentExercise.logType) && weight !== null) {
+                if (bestWeight === null || weight > bestWeight) {
+                  bestWeight = weight;
+                  nextPr = {
+                    exerciseName: currentExercise.exerciseName,
+                    value: `${formatWeight(weight)} ${currentSet.weightUnit}`,
+                  };
+                }
+              } else if (currentExercise.logType === "bodyweight_reps" && reps !== null) {
+                if (bestReps === null || reps > bestReps) {
+                  bestReps = reps;
+                  nextPr = {
+                    exerciseName: currentExercise.exerciseName,
+                    value: `${reps} reps`,
+                  };
+                }
+              } else if (currentExercise.logType === "duration" && duration !== null) {
+                if (bestDuration === null || duration > bestDuration) {
+                  bestDuration = duration;
+                  nextPr = {
+                    exerciseName: currentExercise.exerciseName,
+                    value: `${duration}s`,
+                  };
                 }
               }
-              return { ...setItem, completed: !setItem.completed };
+
+              return { ...currentSet, completed: true };
             });
-            return { ...exercise, sets };
+
+            return {
+              ...currentExercise,
+              bestWeight,
+              bestReps,
+              bestDuration,
+              sets,
+            };
           });
 
           return {
             activeWorkout: { ...state.activeWorkout, exercises },
-            newPr,
+            newPr: nextPr,
           };
         });
 
-        if (!wasCompleted && ex && ex.restSeconds > 0) {
-          get().startRestTimer(exerciseId, ex.restSeconds);
+        if (completing && exercise.restSeconds > 0) {
+          get().startRestTimer(exerciseId, exercise.restSeconds);
         }
+
+        return true;
       },
 
       setExerciseRestTime: (exerciseId, seconds) =>
@@ -216,8 +334,8 @@ export const useWorkoutStore = create<WorkoutStore>()(
           activeWorkout: state.activeWorkout
             ? {
                 ...state.activeWorkout,
-                exercises: state.activeWorkout.exercises.map((e) =>
-                  e.exerciseId === exerciseId ? { ...e, restSeconds: seconds } : e
+                exercises: state.activeWorkout.exercises.map((exercise) =>
+                  exercise.exerciseId === exerciseId ? { ...exercise, restSeconds: seconds } : exercise
                 ),
               }
             : null,
@@ -228,8 +346,8 @@ export const useWorkoutStore = create<WorkoutStore>()(
           activeWorkout: state.activeWorkout
             ? {
                 ...state.activeWorkout,
-                exercises: state.activeWorkout.exercises.map((e) =>
-                  e.exerciseId === exerciseId ? { ...e, notes } : e
+                exercises: state.activeWorkout.exercises.map((exercise) =>
+                  exercise.exerciseId === exerciseId ? { ...exercise, notes } : exercise
                 ),
               }
             : null,
@@ -242,47 +360,97 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
       setDefaultWeightUnit: (unit) => set({ defaultWeightUnit: unit }),
 
-      startRestTimer: (exerciseId, seconds = 90) =>
-        set({ restTimer: { active: true, paused: false, seconds, exerciseId } }),
-
-      pauseRestTimer: () =>
+      convertWeightUnit: (unit) =>
         set((state) => ({
-          restTimer: { ...state.restTimer, paused: !state.restTimer.paused },
+          defaultWeightUnit: unit,
+          activeWorkout: state.activeWorkout
+            ? {
+                ...state.activeWorkout,
+                exercises: state.activeWorkout.exercises.map((exercise) => ({
+                  ...exercise,
+                  sets: exercise.sets.map((setItem) => ({
+                    ...setItem,
+                    weight: convertWeightValue(setItem.weight, unit),
+                    weightUnit: unit,
+                  })),
+                })),
+              }
+            : null,
         })),
 
-      tickRestTimer: () =>
+      startRestTimer: (exerciseId, seconds = DEFAULT_REST_SECONDS) =>
+        set({
+          restTimer:
+            seconds > 0
+              ? {
+                  active: true,
+                  paused: false,
+                  seconds,
+                  exerciseId,
+                  endsAt: Date.now() + seconds * 1000,
+                }
+              : {
+                  active: false,
+                  paused: false,
+                  seconds: 0,
+                  exerciseId: null,
+                  endsAt: null,
+                },
+        }),
+
+      pauseRestTimer: () =>
         set((state) => {
-          if (!state.restTimer.active || state.restTimer.paused) return {};
-          if (state.restTimer.seconds <= 0) {
-            return { restTimer: { active: false, paused: false, seconds: 90, exerciseId: null } };
+          if (!state.restTimer.active) return {};
+          if (state.restTimer.paused) {
+            return {
+              restTimer: {
+                ...state.restTimer,
+                paused: false,
+                endsAt: Date.now() + state.restTimer.seconds * 1000,
+              },
+            };
           }
+
           return {
-            restTimer: { ...state.restTimer, seconds: state.restTimer.seconds - 1 },
+            restTimer: {
+              ...state.restTimer,
+              paused: true,
+              seconds: getRemainingSeconds(state.restTimer),
+              endsAt: null,
+            },
           };
         }),
 
       stopRestTimer: () =>
-        set({ restTimer: { active: false, paused: false, seconds: 90, exerciseId: null } }),
+        set({
+          restTimer: {
+            active: false,
+            paused: false,
+            seconds: DEFAULT_REST_SECONDS,
+            exerciseId: null,
+            endsAt: null,
+          },
+        }),
 
       clearPr: () => set({ newPr: null }),
 
       linkSuperset: (exerciseId1, exerciseId2) =>
         set((state) => {
           if (!state.activeWorkout) return {};
-          const ex1 = state.activeWorkout.exercises.find((e) => e.exerciseId === exerciseId1);
-          const ex2 = state.activeWorkout.exercises.find((e) => e.exerciseId === exerciseId2);
-          // Inherit an existing supersetId, or create a new one
-          const supersetId = ex1?.supersetId ?? ex2?.supersetId ?? Math.random().toString(36).slice(2);
+          const exercise1 = state.activeWorkout.exercises.find((exercise) => exercise.exerciseId === exerciseId1);
+          const exercise2 = state.activeWorkout.exercises.find((exercise) => exercise.exerciseId === exerciseId2);
+          const supersetId = exercise1?.supersetId ?? exercise2?.supersetId ?? Math.random().toString(36).slice(2);
+
           return {
             activeWorkout: {
               ...state.activeWorkout,
-              exercises: state.activeWorkout.exercises.map((ex) =>
-                ex.exerciseId === exerciseId1 ||
-                ex.exerciseId === exerciseId2 ||
-                (ex1?.supersetId && ex.supersetId === ex1.supersetId) ||
-                (ex2?.supersetId && ex.supersetId === ex2.supersetId)
-                  ? { ...ex, supersetId }
-                  : ex
+              exercises: state.activeWorkout.exercises.map((exercise) =>
+                exercise.exerciseId === exerciseId1 ||
+                exercise.exerciseId === exerciseId2 ||
+                (exercise1?.supersetId && exercise.supersetId === exercise1.supersetId) ||
+                (exercise2?.supersetId && exercise.supersetId === exercise2.supersetId)
+                  ? { ...exercise, supersetId }
+                  : exercise
               ),
             },
           };
@@ -291,18 +459,19 @@ export const useWorkoutStore = create<WorkoutStore>()(
       unlinkSuperset: (exerciseId) =>
         set((state) => {
           if (!state.activeWorkout) return {};
-          const ex = state.activeWorkout.exercises.find((e) => e.exerciseId === exerciseId);
-          const sid = ex?.supersetId;
+          const exercise = state.activeWorkout.exercises.find((item) => item.exerciseId === exerciseId);
+          const supersetId = exercise?.supersetId;
+
           return {
             activeWorkout: {
               ...state.activeWorkout,
-              exercises: state.activeWorkout.exercises.map((e) =>
-                e.supersetId === sid ? { ...e, supersetId: null } : e
+              exercises: state.activeWorkout.exercises.map((item) =>
+                item.supersetId === supersetId ? { ...item, supersetId: null } : item
               ),
             },
           };
         }),
     }),
-    { name: "active-workout" }
+    { name: "active-workout", version: 1 }
   )
 );

@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, Dumbbell, Play } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useWorkoutStore } from "@/store/workout-store";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,8 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import { Play, Dumbbell, Loader2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { LogType } from "@/types/database";
 
 interface LastSet {
@@ -49,41 +49,60 @@ interface RoutineWithExercises extends Routine {
   }>;
 }
 
+interface PersonalBest {
+  weight: number | null;
+  reps: number | null;
+  duration: number | null;
+}
+
 interface Props {
   routines: Routine[];
   preselectedRoutine: RoutineWithExercises | null;
   userId: string;
   lastSets: LastSet[];
-  personalBests: Record<string, { weight: number | null; reps: number | null }>;
+  personalBests: Record<string, PersonalBest>;
 }
 
 export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastSets, personalBests }: Props) {
   const router = useRouter();
   const { startWorkout, defaultWeightUnit, activeWorkout, endWorkout } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState(
-    preselectedRoutine ? preselectedRoutine.name : `Workout ${new Date().toLocaleDateString()}`
+    preselectedRoutine ? preselectedRoutine.name : `Workout ${new Date().toLocaleDateString()}`,
   );
   const [starting, setStarting] = useState(false);
+  const [manualRoutineWarning, setManualRoutineWarning] = useState<string | null>(null);
   const [conflictPending, setConflictPending] = useState<{ routine: RoutineWithExercises | null; name?: string } | null>(null);
+  const startedRef = useRef(false);
 
-  void userId;
+  const emptyRoutineMessage = "This routine has no exercises. Add exercises before starting.";
+  const emptyPreselectedRoutine = Boolean(preselectedRoutine && preselectedRoutine.routine_exercises.length === 0);
+  const routineWarning = emptyPreselectedRoutine ? emptyRoutineMessage : manualRoutineWarning;
 
   async function discardActiveAndStart(routine: RoutineWithExercises | null, name?: string) {
     if (activeWorkout?.sessionId) {
       const supabase = createClient();
       await supabase.from("workout_sessions").delete().eq("id", activeWorkout.sessionId);
     }
+
     endWorkout();
     setConflictPending(null);
     await handleStart(routine, name);
   }
 
   async function handleStart(routine?: RoutineWithExercises | null, name?: string) {
-    // If a different workout is already active, prompt to discard first
+    if (routine && routine.routine_exercises.length === 0) {
+      setManualRoutineWarning(emptyRoutineMessage);
+      toast.error(emptyRoutineMessage);
+      return;
+    }
+
+    setManualRoutineWarning(null);
+
     if (activeWorkout?.sessionId && activeWorkout.routineId !== (routine?.id ?? null)) {
       setConflictPending({ routine: routine ?? null, name });
       return;
     }
+
     setStarting(true);
     const supabase = createClient();
     const finalName = name ?? workoutName;
@@ -96,12 +115,9 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
       .is("finished_at", null)
       .gte("started_at", startedAfter);
 
-    existingQuery = routine?.id
-      ? existingQuery.eq("routine_id", routine.id)
-      : existingQuery.is("routine_id", null);
+    existingQuery = routine?.id ? existingQuery.eq("routine_id", routine.id) : existingQuery.is("routine_id", null);
 
     const { data: existing, error: existingError } = await existingQuery.maybeSingle();
-
     if (existingError) {
       toast.error("Failed to start workout");
       setStarting(false);
@@ -117,7 +133,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
     const { data: session, error } = await supabase
       .from("workout_sessions")
       .insert({ user_id: userId, routine_id: routine?.id ?? null, name: finalName })
-      .select()
+      .select("id, started_at")
       .single();
 
     if (error || !session) {
@@ -127,40 +143,46 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
     }
 
     const exercises = (routine?.routine_exercises ?? [])
-      .sort((a, b) => a.position - b.position)
-      .map((re) => {
-        // Build a map of set_number -> last session values for this exercise
-        const prevSets = lastSets
-          .filter((s) => s.exercise_id === re.exercise_id)
-          .reduce<Record<number, LastSet>>((acc, s) => { acc[s.set_number] = s; return acc; }, {});
+      .slice()
+      .sort((left, right) => left.position - right.position)
+      .map((routineExercise) => {
+        const previousSets = lastSets
+          .filter((setItem) => setItem.exercise_id === routineExercise.exercise_id)
+          .sort((left, right) => left.set_number - right.set_number);
 
-        const logType = (re.exercises?.log_type ?? "weight_reps") as LogType;
-        const setTemplates: Array<{ reps: string; weight?: string }> = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "" }));
-        const best = personalBests[re.exercise_id] ?? { weight: null, reps: null };
+        const logType = (routineExercise.exercises?.log_type ?? "weight_reps") as LogType;
+        const setTemplates: Array<{ reps: string; weight?: string }> = routineExercise.set_targets
+          ?? Array.from({ length: routineExercise.default_sets }, () => ({ reps: routineExercise.default_reps?.toString() ?? "" }));
+        const best = personalBests[routineExercise.exercise_id] ?? { weight: null, reps: null, duration: null };
+        const isDuration = logType === "duration";
 
         return {
-          exerciseId: re.exercise_id,
-          exerciseName: re.exercises?.name ?? "Unknown",
-          gifUrl: re.exercises?.gif_url ?? null,
+          exerciseId: routineExercise.exercise_id,
+          exerciseName: routineExercise.exercises?.name ?? "Unknown",
+          gifUrl: routineExercise.exercises?.gif_url ?? null,
           logType,
-          supersetId: re.superset_id ?? null,
-          restSeconds: re.rest_seconds ?? 90,
-          notes: re.notes ?? "",
+          supersetId: routineExercise.superset_id ?? null,
+          restSeconds: routineExercise.rest_seconds ?? 90,
+          notes: routineExercise.notes ?? "",
           bestWeight: best.weight,
           bestReps: best.reps,
-          sets: setTemplates.map((st, i) => {
-            const prev = prevSets[i + 1];
-            const isDuration = logType === "duration";
+          bestDuration: best.duration,
+          sets: setTemplates.map((setTemplate, index) => {
+            const previousSet = index >= 0 && index < previousSets.length ? previousSets[index] : undefined;
             return {
               id: Math.random().toString(36).slice(2),
-              setNumber: i + 1,
-              reps: prev?.reps?.toString() ?? (isDuration ? "" : st.reps),
-              weight: prev?.weight?.toString() ?? st.weight ?? "",
-              weightUnit: (prev?.weight_unit ?? defaultWeightUnit) as typeof defaultWeightUnit,
+              setNumber: index + 1,
+              reps: isDuration
+                ? (setTemplate.reps ?? "")
+                : previousSet?.reps?.toString() ?? setTemplate.reps ?? "",
+              weight: previousSet?.weight?.toString() ?? setTemplate.weight ?? "",
+              weightUnit: previousSet?.weight_unit === "kg" || previousSet?.weight_unit === "lbs"
+                ? previousSet.weight_unit
+                : defaultWeightUnit,
               isBodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(logType),
               durationSeconds: isDuration
-                ? (prev?.duration_seconds?.toString() ?? st.reps)
-                : (prev?.duration_seconds?.toString() ?? ""),
+                ? previousSet?.duration_seconds?.toString() ?? setTemplate.reps ?? ""
+                : "",
               completed: false,
             };
           }),
@@ -178,34 +200,43 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
     router.push(`/workout/${session.id}`);
   }
 
-  const startedRef = useRef(false);
-
-  // Auto-start when a routine is preselected — but resume existing session if it's the same routine
   useEffect(() => {
-    if (preselectedRoutine && !startedRef.current) {
-      startedRef.current = true;
-      // If there's already an active workout for this routine, just navigate back to it
-      if (activeWorkout?.sessionId && activeWorkout.routineId === preselectedRoutine.id) {
-        router.push(`/workout/${activeWorkout.sessionId}`);
-        return;
-      }
-      handleStart(preselectedRoutine, preselectedRoutine.name);
+    if (!preselectedRoutine || startedRef.current) return;
+
+    startedRef.current = true;
+    if (emptyPreselectedRoutine) {
+      return;
     }
+
+    if (activeWorkout?.sessionId && activeWorkout.routineId === preselectedRoutine.id) {
+      router.push(`/workout/${activeWorkout.sessionId}`);
+      return;
+    }
+
+    void handleStart(preselectedRoutine, preselectedRoutine.name);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (preselectedRoutine && !conflictPending) {
+  if (preselectedRoutine && !conflictPending && !emptyPreselectedRoutine) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
+      <div className="flex flex-col items-center justify-center gap-4 py-24">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-muted-foreground text-sm">Starting {preselectedRoutine.name}…</p>
+        <p className="text-sm text-muted-foreground">Starting {preselectedRoutine.name}…</p>
       </div>
     );
   }
 
   return (
     <>
-      <AlertDialog open={!!conflictPending} onOpenChange={(open) => { if (!open) { setConflictPending(null); if (preselectedRoutine) router.back(); } }}>
+      <AlertDialog
+        open={!!conflictPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConflictPending(null);
+            if (preselectedRoutine) router.back();
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Workout already in progress</AlertDialogTitle>
@@ -224,48 +255,55 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Start Workout</h1>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Workout Name</label>
-        <Input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} placeholder="e.g. Push Day" />
-      </div>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Start Workout</h1>
 
-      <Button className="w-full h-14 text-base" onClick={() => handleStart(null)} disabled={starting || !workoutName.trim()}>
-        <Play className="h-5 w-5 mr-2" />
-        Start Empty Workout
-      </Button>
-
-      {routines.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Start from routine</h2>
-          <div className="space-y-2">
-            {routines.map((r) => (
-              <Card key={r.id} className="hover:bg-muted/30 transition-colors">
-                <CardContent className="flex items-center justify-between py-4 gap-2">
-                  <button
-                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                    onClick={() => router.push(`/routines/${r.id}`)}
-                  >
-                    <Dumbbell className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="font-medium truncate">{r.name}</span>
-                  </button>
-                  <button
-                    onClick={() => router.push(`/workout/start?routine=${r.id}`)}
-                    className="shrink-0 min-h-[44px] min-w-[44px] rounded-md hover:bg-primary hover:text-primary-foreground text-muted-foreground transition-colors"
-                    title="Start workout"
-                    aria-label={`Start ${r.name}`}
-                  >
-                    <Play className="h-4 w-4" />
-                  </button>
-                </CardContent>
-              </Card>
-            ))}
+        {routineWarning && (
+          <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-100">
+            {routineWarning}
           </div>
+        )}
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Workout Name</label>
+          <Input value={workoutName} onChange={(event) => setWorkoutName(event.target.value)} placeholder="e.g. Push Day" />
         </div>
-      )}
-    </div>
+
+        <Button className="h-14 w-full text-base" onClick={() => handleStart(null)} disabled={starting || !workoutName.trim()}>
+          <Play className="mr-2 h-5 w-5" />
+          Start Empty Workout
+        </Button>
+
+        {routines.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Start from routine</h2>
+            <div className="space-y-2">
+              {routines.map((routine) => (
+                <Card key={routine.id} className="transition-colors hover:bg-muted/30">
+                  <CardContent className="flex items-center justify-between gap-2 py-4">
+                    <button
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => router.push(`/routines/${routine.id}`)}
+                    >
+                      <Dumbbell className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate font-medium">{routine.name}</span>
+                    </button>
+                    <button
+                      onClick={() => router.push(`/workout/start?routine=${routine.id}`)}
+                      className="min-h-[44px] min-w-[44px] shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                      title="Start workout"
+                      aria-label={`Start ${routine.name}`}
+                    >
+                      <Play className="h-4 w-4" />
+                    </button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

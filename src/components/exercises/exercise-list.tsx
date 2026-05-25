@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -109,24 +109,33 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     })();
   }, [userId]);
 
-  const filtered = exercises.filter((ex) => {
+  const filtered = useMemo(() => exercises.filter((ex) => {
     const matchesSearch = ex.name.toLowerCase().includes(search.toLowerCase());
     const matchesMuscle = muscleFilter === "all" || ex.muscle_group === muscleFilter;
     return matchesSearch && matchesMuscle;
-  });
+  }), [exercises, search, muscleFilter]);
 
   // When searching or filtering, show flat sorted list; otherwise show sections
   const isFiltering = search.trim() !== "" || muscleFilter !== "all";
 
-  const recentExercises = !isFiltering
-    ? filtered.filter((ex) => recentIds.includes(ex.id)).sort((a, b) => recentIds.indexOf(a.id) - recentIds.indexOf(b.id))
-    : [];
-  const customExercises = !isFiltering
-    ? filtered.filter((ex) => ex.is_custom && !recentIds.includes(ex.id))
-    : [];
-  const allExercises = !isFiltering
-    ? filtered.filter((ex) => !ex.is_custom && !recentIds.includes(ex.id))
-    : filtered;
+  const recentExercises = useMemo(() =>
+    !isFiltering
+      ? filtered.filter((ex) => recentIds.includes(ex.id)).sort((a, b) => recentIds.indexOf(a.id) - recentIds.indexOf(b.id))
+      : [],
+    [isFiltering, filtered, recentIds]
+  );
+  const customExercises = useMemo(() =>
+    !isFiltering
+      ? filtered.filter((ex) => ex.is_custom && !recentIds.includes(ex.id))
+      : [],
+    [isFiltering, filtered, recentIds]
+  );
+  const allExercises = useMemo(() =>
+    !isFiltering
+      ? filtered.filter((ex) => !ex.is_custom && !recentIds.includes(ex.id))
+      : filtered,
+    [isFiltering, filtered, recentIds]
+  );
 
   function goBack() {
     setView("list");
@@ -169,7 +178,16 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         <CardContent className="flex items-center gap-3 py-3">
           <div className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted flex items-center justify-center relative">
             {ex.gif_url ? (
-              <Image src={ex.gif_url} alt={ex.name} width={40} height={40} unoptimized className="object-cover w-full h-full" />
+              <Image
+                src={ex.gif_url}
+                alt={ex.name}
+                width={40}
+                height={40}
+                loading="lazy"
+                sizes="40px"
+                unoptimized
+                className="object-cover w-full h-full"
+              />
             ) : (
               <Dumbbell className="h-4 w-4 text-muted-foreground" />
             )}
@@ -193,6 +211,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             <button
               type="button"
               className="ml-1 p-1 rounded-md hover:bg-muted text-muted-foreground"
+              aria-label={`View details for ${ex.name}`}
               onClick={(e) => { e.stopPropagation(); setDetailExercise(ex); setView("detail"); }}
             >
               <Info className="h-4 w-4" />
@@ -325,6 +344,8 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               alt={ex.name}
               width={400}
               height={400}
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, 400px"
               unoptimized
               className="rounded-xl object-contain w-full max-h-64"
             />
@@ -383,13 +404,13 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
           <form onSubmit={handleUpdateExercise} className="space-y-4">
             <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
+              <Label htmlFor="edit-name">Name</Label>
+              <Input id="edit-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
             </div>
             <div className="space-y-2">
-              <Label>Muscle Group</Label>
+              <Label htmlFor="edit-muscle">Muscle Group</Label>
               <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as MuscleGroup)}>
-                <SelectTrigger><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
+                <SelectTrigger id="edit-muscle"><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
                 <SelectContent>
                   {MUSCLE_GROUPS.map((m) => (
                     <SelectItem key={m} value={m}>{muscleLabel(m)}</SelectItem>
@@ -398,9 +419,9 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Equipment</Label>
+              <Label htmlFor="edit-equipment">Equipment</Label>
               <Select value={newEquipment} onValueChange={(v) => setNewEquipment(v as EquipmentType)}>
-                <SelectTrigger><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
+                <SelectTrigger id="edit-equipment"><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
                 <SelectContent>
                   {EQUIPMENT_TYPES.map((e) => (
                     <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
@@ -416,8 +437,9 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="edit-gif-url">Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
+                id="edit-gif-url"
                 value={newGifUrl}
                 onChange={(e) => setNewGifUrl(e.target.value)}
                 placeholder="https://… (GIF or image URL)"
@@ -447,13 +469,13 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
           <form onSubmit={handleAddExercise} className="space-y-4">
             <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
+              <Label htmlFor="add-name">Name</Label>
+              <Input id="add-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Cable Curl" required />
             </div>
             <div className="space-y-2">
-              <Label>Muscle Group</Label>
+              <Label htmlFor="add-muscle">Muscle Group</Label>
               <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as MuscleGroup)}>
-                <SelectTrigger><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
+                <SelectTrigger id="add-muscle"><span>{muscleLabel(newMuscle)}</span></SelectTrigger>
                 <SelectContent>
                   {MUSCLE_GROUPS.map((m) => (
                     <SelectItem key={m} value={m}>{muscleLabel(m)}</SelectItem>
@@ -462,9 +484,9 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Equipment</Label>
+              <Label htmlFor="add-equipment">Equipment</Label>
               <Select value={newEquipment} onValueChange={(v) => setNewEquipment(v as EquipmentType)}>
-                <SelectTrigger><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
+                <SelectTrigger id="add-equipment"><span>{EQUIPMENT_TYPES.find(e => e.value === newEquipment)?.label}</span></SelectTrigger>
                 <SelectContent>
                   {EQUIPMENT_TYPES.map((e) => (
                     <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
@@ -473,9 +495,9 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Exercise Type</Label>
+              <Label htmlFor="add-log-type">Exercise Type</Label>
               <Select value={newLogType} onValueChange={(v) => setNewLogType(v as LogType)}>
-                <SelectTrigger><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
+                <SelectTrigger id="add-log-type"><span>{LOG_TYPES.find(t => t.value === newLogType)?.label}</span></SelectTrigger>
                 <SelectContent>
                   {LOG_TYPES.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
@@ -489,8 +511,9 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="add-gif-url">Image URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
+                id="add-gif-url"
                 value={newGifUrl}
                 onChange={(e) => setNewGifUrl(e.target.value)}
                 placeholder="https://… (GIF or image URL)"

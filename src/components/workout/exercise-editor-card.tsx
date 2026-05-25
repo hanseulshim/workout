@@ -76,6 +76,8 @@ export function ExerciseEditorCard({
                     alt={name}
                     width={32}
                     height={32}
+                    loading="lazy"
+                    sizes="32px"
                     unoptimized
                     className="object-cover w-full h-full"
                   />

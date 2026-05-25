@@ -34,7 +34,7 @@ export function ActiveWorkoutBanner() {
       <button
         onClick={handleDiscard}
         className="shrink-0 p-1 rounded hover:bg-primary-foreground/20 transition-colors"
-        title="Discard workout"
+        aria-label="Discard workout"
       >
         <X className="h-4 w-4" />
       </button>

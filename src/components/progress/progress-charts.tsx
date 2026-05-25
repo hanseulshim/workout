@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Trophy } from "lucide-react";
+import { useMemo } from "react";
 
 interface SetRow {
   id: string;
@@ -68,6 +69,54 @@ function SetsTooltip({ active, payload }: { active?: boolean; payload?: Array<{ 
 }
 
 export function ProgressCharts({ sets }: Props) {
+  const { data, allTimeMax, allTimeMaxReps, allTimeMaxDuration, bestWeightSet, hasWeight, hasDuration } = useMemo(() => {
+    if (sets.length === 0) {
+      return { data: [], allTimeMax: 0, allTimeMaxReps: 0, allTimeMaxDuration: 0, bestWeightSet: null, hasWeight: false, hasDuration: false };
+    }
+
+    // Group by session date — preserve insertion order (sets are ordered by completed_at asc)
+    const byDate = new Map<string, DayData>();
+
+    for (const s of sets) {
+      const isoDate = sessionDate(s);
+      const date = format(new Date(isoDate), "MMM d");
+      const weight = s.weight ?? 0;
+      const reps = s.reps ?? 0;
+      const vol = weight * reps;
+
+      if (!byDate.has(date)) {
+        byDate.set(date, { date, isoDate, maxWeight: weight, volume: vol, maxReps: reps, maxDuration: s.duration_seconds ?? 0, setLabels: [formatSet(s)] });
+      } else {
+        const existing = byDate.get(date)!;
+        byDate.set(date, {
+          ...existing,
+          maxWeight: Math.max(existing.maxWeight, weight),
+          volume: existing.volume + vol,
+          maxReps: Math.max(existing.maxReps, reps),
+          maxDuration: Math.max(existing.maxDuration, s.duration_seconds ?? 0),
+          setLabels: [...existing.setLabels, formatSet(s)],
+        });
+      }
+    }
+
+    const computed = [...byDate.values()];
+    const hasWeightVal = sets.some((s) => s.weight);
+    const hasDurationVal = !hasWeightVal && sets.some((s) => s.duration_seconds);
+    return {
+      data: computed,
+      allTimeMax: Math.max(...computed.map((d) => d.maxWeight)),
+      allTimeMaxReps: Math.max(...computed.map((d) => d.maxReps)),
+      allTimeMaxDuration: Math.max(...computed.map((d) => d.maxDuration)),
+      bestWeightSet: sets.reduce<SetRow | null>((best, setRow) => {
+        if (setRow.weight == null) return best;
+        if (!best || (best.weight ?? 0) < setRow.weight) return setRow;
+        return best;
+      }, null),
+      hasWeight: hasWeightVal,
+      hasDuration: hasDurationVal,
+    };
+  }, [sets]);
+
   if (sets.length === 0) {
     return (
       <p className="text-muted-foreground text-sm text-center py-12">
@@ -76,48 +125,11 @@ export function ProgressCharts({ sets }: Props) {
     );
   }
 
-  // Group by session date — preserve insertion order (sets are ordered by completed_at asc)
-  const byDate = new Map<string, DayData>();
-
-  for (const s of sets) {
-    const isoDate = sessionDate(s);
-    const date = format(new Date(isoDate), "MMM d");
-    const weight = s.weight ?? 0;
-    const reps = s.reps ?? 0;
-    const vol = weight * reps;
-
-    if (!byDate.has(date)) {
-      byDate.set(date, { date, isoDate, maxWeight: weight, volume: vol, maxReps: reps, maxDuration: s.duration_seconds ?? 0, setLabels: [formatSet(s)] });
-    } else {
-      const existing = byDate.get(date)!;
-      byDate.set(date, {
-        ...existing,
-        maxWeight: Math.max(existing.maxWeight, weight),
-        volume: existing.volume + vol,
-        maxReps: Math.max(existing.maxReps, reps),
-        maxDuration: Math.max(existing.maxDuration, s.duration_seconds ?? 0),
-        setLabels: [...existing.setLabels, formatSet(s)],
-      });
-    }
-  }
-
-  const data = [...byDate.values()];
-  const allTimeMax = Math.max(...data.map((d) => d.maxWeight));
-  const allTimeMaxReps = Math.max(...data.map((d) => d.maxReps));
-  const allTimeMaxDuration = Math.max(...data.map((d) => d.maxDuration));
-  const bestWeightSet = sets.reduce<SetRow | null>((best, setRow) => {
-    if (setRow.weight == null) return best;
-    if (!best || (best.weight ?? 0) < setRow.weight) return setRow;
-    return best;
-  }, null);
-
   function formatDuration(sec: number) {
     return sec >= 60
       ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`
       : `${sec}s`;
   }
-  const hasWeight = sets.some((s) => s.weight);
-  const hasDuration = !hasWeight && sets.some((s) => s.duration_seconds);
 
   const chartColor = "hsl(var(--primary))";
 

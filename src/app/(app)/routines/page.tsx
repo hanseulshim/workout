@@ -1,60 +1,68 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { Plus, Pencil, Play } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Pencil, Play } from "lucide-react";
+import { cn } from "@/lib/utils";
 export const metadata = { title: "Routines | Workout" };
-
 
 export default async function RoutinesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
-  const { data: routines } = await supabase
+  const { data: routinesRaw, error } = await supabase
     .from("routines")
-    .select(`*, routine_exercises(count)`)
-    .eq("user_id", user!.id)
-    .order("updated_at", { ascending: false });
+    .select("id, name, updated_at, last_used_at, routine_exercises(count)")
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+
+  const routines = (routinesRaw ?? []).slice().sort((left, right) => {
+    const leftTime = left.last_used_at ?? left.updated_at;
+    const rightTime = right.last_used_at ?? right.updated_at;
+    return new Date(rightTime).getTime() - new Date(leftTime).getTime();
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Routines</h1>
         <Link href="/routines/new" className={cn(buttonVariants({ size: "sm" }))}>
-          <Plus className="h-4 w-4 mr-1" />
+          <Plus className="mr-1 h-4 w-4" />
           New
         </Link>
       </div>
 
-      {routines?.length === 0 && (
-        <p className="text-muted-foreground text-sm text-center py-12">
+      {routines.length === 0 && (
+        <p className="py-12 text-center text-sm text-muted-foreground">
           No routines yet. Create one to get started!
         </p>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {routines?.map((routine) => (
-          <Card key={routine.id} className="hover:bg-muted/30 transition-colors">
-            <CardContent className="flex items-center justify-between py-4 gap-2">
-              <Link href={`/routines/${routine.id}`} className="flex-1 min-w-0">
-                <p className="font-medium truncate">{routine.name}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {routines.map((routine) => (
+          <Card key={routine.id} className="transition-colors hover:bg-muted/30">
+            <CardContent className="flex items-center justify-between gap-2 py-4">
+              <Link href={`/routines/${routine.id}`} className="min-w-0 flex-1">
+                <p className="truncate font-medium">{routine.name}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {(routine.routine_exercises as unknown as { count: number }[])?.[0]?.count ?? 0} exercises
                 </p>
               </Link>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 <Link
                   href={`/routines/${routine.id}/edit`}
                   className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}
-                  title="Edit routine"
+                  aria-label="Edit routine"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Link>
                 <Link
                   href={`/workout/start?routine=${routine.id}`}
                   className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 text-primary hover:text-primary")}
-                  title="Start workout"
+                  aria-label="Start workout"
                 >
                   <Play className="h-3.5 w-3.5" />
                 </Link>

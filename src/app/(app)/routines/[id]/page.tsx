@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,22 +16,26 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
-  const [{ data: routine }, { data: sessions }] = await Promise.all([
+  const [{ data: routine, error: routineError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase
       .from("routines")
       .select(`*, routine_exercises(position, default_sets, default_reps, set_targets, exercises(id, name, muscle_group))`)
       .eq("id", id)
-      .eq("user_id", user!.id)
+      .eq("user_id", user.id)
       .single(),
     supabase
       .from("workout_sessions")
       .select("id, name, started_at, finished_at")
       .eq("routine_id", id)
-      .eq("user_id", user!.id)
+      .eq("user_id", user.id)
       .order("started_at", { ascending: false })
       .limit(20),
   ]);
+
+  if (routineError && routineError.code !== "PGRST116") throw routineError;
+  if (sessionsError) throw sessionsError;
 
   if (!routine) notFound();
 
@@ -51,10 +55,12 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   let weightUnit = "lbs";
 
   if (sessionIds.length > 0) {
-    const { data: sets } = await supabase
+    const { data: sets, error: setsError } = await supabase
       .from("workout_sets")
       .select("session_id, weight, reps, completed_at, weight_unit")
       .in("session_id", sessionIds);
+
+    if (setsError) throw setsError;
 
     weightUnit = (sets ?? []).find((setRow) => setRow.weight_unit)?.weight_unit ?? "lbs";
 
@@ -119,8 +125,8 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {exercises.map((re, i) => (
-            <div key={i} className="flex items-center justify-between text-sm">
+          {exercises.map((re) => (
+            <div key={re.exercises!.id} className="flex items-center justify-between text-sm">
               <div>
                 <span className="font-medium">{re.exercises!.name}</span>
                 <span className="text-muted-foreground ml-2">{re.exercises!.muscle_group}</span>
