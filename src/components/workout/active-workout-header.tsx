@@ -1,15 +1,28 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { WeightUnit } from "@/types/database";
 
+function formatElapsed(startedAt: string, now: number | null): string {
+  const startMs = new Date(startedAt).getTime();
+  const elapsedMs = Math.max(0, (now ?? Date.now()) - startMs);
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 interface ActiveWorkoutHeaderProps {
   name: string;
   startedAt: string;
+  now: number | null;
   defaultWeightUnit: WeightUnit;
   finishing: boolean;
   completedSets: number;
@@ -23,6 +36,7 @@ interface ActiveWorkoutHeaderProps {
 export function ActiveWorkoutHeader({
   name,
   startedAt,
+  now,
   defaultWeightUnit,
   finishing,
   completedSets,
@@ -37,8 +51,8 @@ export function ActiveWorkoutHeader({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="max-w-[180px] truncate text-lg font-bold">{name}</h1>
-          <p className="text-xs text-muted-foreground">
-            Started {formatDistanceToNow(new Date(startedAt), { addSuffix: true })}
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {formatElapsed(startedAt, now)}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">

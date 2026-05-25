@@ -228,6 +228,7 @@ export function ActiveWorkoutScreen() {
         <ActiveWorkoutHeader
           name={activeWorkout.name}
           startedAt={activeWorkout.startedAt}
+          now={now}
           defaultWeightUnit={defaultWeightUnit}
           finishing={finishing}
           completedSets={completedSets}
