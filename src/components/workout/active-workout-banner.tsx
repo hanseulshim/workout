@@ -1,15 +1,18 @@
 "use client";
 
 import { useWorkoutStore } from "@/store/workout-store";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Dumbbell, X, ChevronRight } from "lucide-react";
 
 export function ActiveWorkoutBanner() {
   const { activeWorkout, endWorkout } = useWorkoutStore();
   const router = useRouter();
+  const pathname = usePathname();
 
   if (!activeWorkout) return null;
+  // Already on this workout's page — no need to show the banner
+  if (activeWorkout.sessionId && pathname === `/workout/${activeWorkout.sessionId}`) return null;
 
   async function handleDiscard() {
     if (!activeWorkout) return;

@@ -36,6 +36,23 @@ function nowMs() {
   return Date.now();
 }
 
+/** "300" → "5:00", "90" → "1:30", "45" → "0:45" */
+function secondsToDisplay(raw: string): string {
+  const n = Number.parseInt(raw, 10);
+  if (!raw || Number.isNaN(n) || n < 0) return raw;
+  return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
+}
+
+/** "5:00" → "300", "1:30" → "90", "45" → "45", "5" → "5" */
+function displayToSeconds(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.includes(":")) {
+    const [mins, secs] = trimmed.split(":").map((p) => Number.parseInt(p, 10) || 0);
+    return String(mins * 60 + secs);
+  }
+  return trimmed;
+}
+
 function formatRest(seconds: number) {
   if (seconds === 0) return "Off";
   return seconds < 60
@@ -168,7 +185,7 @@ function SetColumnHeaders({ logType }: { logType: LogType }) {
     return (
       <div className="grid grid-cols-[32px_1fr_36px_48px] gap-2 px-1">
         <span className="text-center text-xs text-muted-foreground">Set</span>
-        <span className="text-center text-xs text-muted-foreground">Duration (sec)</span>
+        <span className="text-center text-xs text-muted-foreground">Duration</span>
         <span />
         <span />
       </div>
@@ -243,9 +260,9 @@ function SetRow({
         <Input
           type="text"
           inputMode="numeric"
-          placeholder="0"
-          value={set.durationSeconds}
-          onChange={(event) => onUpdate({ durationSeconds: event.target.value })}
+          placeholder="0:00"
+          value={secondsToDisplay(set.durationSeconds)}
+          onChange={(event) => onUpdate({ durationSeconds: displayToSeconds(event.target.value) })}
           onFocus={(event) => event.target.select()}
           className={inputClass}
         />

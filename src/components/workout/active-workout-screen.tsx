@@ -61,17 +61,22 @@ export function ActiveWorkoutScreen() {
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [userId, setUserId] = useState("");
   const [now, setNow] = useState<number | null>(null);
   const [invalidSetIds, setInvalidSetIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadExercises() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("exercises")
-        .select("id, name, muscle_group, category, equipment_type, log_type, gif_url, is_custom, user_id, created_at")
-        .order("name");
+      const [{ data }, { data: { user } }] = await Promise.all([
+        supabase
+          .from("exercises")
+          .select("id, name, muscle_group, category, equipment_type, log_type, gif_url, is_custom, user_id, created_at")
+          .order("name"),
+        supabase.auth.getUser(),
+      ]);
       setExercises(data ?? []);
+      setUserId(user?.id ?? "");
     }
 
     void loadExercises();
@@ -259,6 +264,7 @@ export function ActiveWorkoutScreen() {
           open={addExerciseOpen}
           onOpenChange={setAddExerciseOpen}
           exercises={exercises}
+          userId={userId}
           onSelect={handleAddExercise}
         />
       </div>

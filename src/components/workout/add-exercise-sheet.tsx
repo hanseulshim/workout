@@ -11,6 +11,7 @@ interface AddExerciseSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   exercises: Exercise[];
+  userId: string;
   onSelect: (selectedExercises: Exercise[]) => void;
 }
 
@@ -18,6 +19,7 @@ export function AddExerciseSheet({
   open,
   onOpenChange,
   exercises,
+  userId,
   onSelect,
 }: AddExerciseSheetProps) {
   return (
@@ -31,7 +33,7 @@ export function AddExerciseSheet({
           <SheetTitle>Add Exercise</SheetTitle>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ExerciseList exercises={exercises} userId="" selectable onSelect={onSelect} />
+          <ExerciseList exercises={exercises} userId={userId} selectable onSelect={onSelect} />
         </div>
       </SheetContent>
     </Sheet>
