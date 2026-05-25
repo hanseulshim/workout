@@ -28,8 +28,9 @@ export default async function DashboardPage() {
       .from("routines")
       .select("id, name")
       .eq("user_id", user.id)
+      .order("last_used_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false })
-      .limit(3),
+      .limit(4),
   ]);
 
   if (workoutsError) throw workoutsError;
@@ -56,7 +57,10 @@ export default async function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         {routines && routines.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">My Routines</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">My Routines</h2>
+              <Link href="/routines" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
+            </div>
             <div className="space-y-2">
               {routines.map((routine) => (
                 <Card key={routine.id} className="cursor-pointer transition-colors hover:bg-muted/50">

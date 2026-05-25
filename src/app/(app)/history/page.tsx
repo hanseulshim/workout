@@ -15,18 +15,15 @@ export default async function HistoryPage() {
 
   const { data: sessions, error } = await supabase
     .from("workout_sessions")
-    .select("*, workout_sets(count)")
+    .select("id, name, started_at, finished_at")
     .eq("user_id", user.id)
     .not("finished_at", "is", null)
     .order("started_at", { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (error) throw error;
 
-  // Filter out any sessions with 0 sets (safety net for orphaned sessions)
-  const validSessions = (sessions ?? []).filter(
-    (s) => ((s.workout_sets as unknown as { count: number }[])?.[0]?.count ?? 0) > 0
-  );
+  const validSessions = sessions ?? [];
 
   return (
     <div className="space-y-4">
@@ -43,7 +40,6 @@ export default async function HistoryPage() {
           const duration = session.finished_at
             ? differenceInMinutes(new Date(session.finished_at), new Date(session.started_at))
             : null;
-          const setCount = (session.workout_sets as unknown as { count: number }[])?.[0]?.count ?? 0;
 
           return (
             <Card key={session.id}>
@@ -54,17 +50,12 @@ export default async function HistoryPage() {
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(session.started_at), { addSuffix: true })}
                     </p>
-                    <div className="flex gap-2 flex-wrap">
-                      {duration !== null && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {duration}m
-                        </Badge>
-                      )}
+                    {duration !== null && (
                       <Badge variant="secondary" className="text-xs">
-                        {setCount} sets
+                        <Clock className="h-3 w-3 mr-1" />
+                        {duration}m
                       </Badge>
-                    </div>
+                    )}
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 </CardContent>

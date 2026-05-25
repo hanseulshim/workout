@@ -46,76 +46,39 @@ export default async function ProgressPage() {
     category: string;
   };
 
-  // Get all exercises the user has logged (join through workout_sessions to filter by user)
-  const { data: loggedExercises, error: loggedError } = await supabase
-    .from("workout_sets")
-    .select(`exercise_id, exercises(id, name, muscle_group, category), workout_sessions!inner(user_id)`)
-    .eq("workout_sessions.user_id", user.id)
-    .limit(500);
+  type LastSetRow = {
+    exercise_id: string;
+    weight: number | null;
+    reps: number | null;
+    duration_seconds: number | null;
+    weight_unit: string;
+    log_type: string;
+  };
+
+  const [{ data: exercises, error: loggedError }, { data: lastSetsData, error: lastSetsError }] =
+    await Promise.all([
+      supabase.rpc("get_user_exercises", { p_user_id: user.id }) as unknown as Promise<{ data: LoggedExercise[] | null; error: unknown }>,
+      supabase.rpc("get_user_last_sets", { p_user_id: user.id }) as unknown as Promise<{ data: LastSetRow[] | null; error: unknown }>,
+    ]);
 
   if (loggedError) throw loggedError;
+  if (lastSetsError) throw lastSetsError;
 
-  // Deduplicate exercises client-side
-  const seen = new Set<string>();
-  const exercises = (loggedExercises ?? [])
-    .map((row) => {
-      const ex = row.exercises;
-      return Array.isArray(ex) ? ex[0] : ex;
-    })
-    .filter((ex): ex is LoggedExercise => {
-      if (!ex || seen.has(ex.id)) return false;
-      seen.add(ex.id);
-      return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const exerciseIds = exercises.map((exercise) => exercise.id);
-  const lastSetByExercise: Record<string, { weight: number | null; reps: number | null; duration_seconds: number | null; weight_unit: string; log_type: string }> = {};
-
-  if (exerciseIds.length > 0) {
-    type RecentSet = {
-      exercise_id: string;
-      weight: number | null;
-      reps: number | null;
-      duration_seconds: number | null;
-      weight_unit: string;
-      exercises: { log_type: string } | { log_type: string }[] | null;
-    };
-
-    const { data: recentSets, error: recentSetsError } = await supabase
-      .from("workout_sets")
-      .select("exercise_id, weight, reps, duration_seconds, weight_unit, completed_at, exercises(log_type), workout_sessions!inner(user_id)")
-      .in("exercise_id", exerciseIds)
-      .eq("workout_sessions.user_id", user.id)
-      .order("completed_at", { ascending: false })
-      .limit(500);
-
-    if (recentSetsError) throw recentSetsError;
-
-    for (const setItem of (recentSets ?? []) as RecentSet[]) {
-      if (!lastSetByExercise[setItem.exercise_id]) {
-        const exercise = Array.isArray(setItem.exercises) ? setItem.exercises[0] : setItem.exercises;
-        lastSetByExercise[setItem.exercise_id] = {
-          weight: setItem.weight,
-          reps: setItem.reps,
-          duration_seconds: setItem.duration_seconds,
-          weight_unit: setItem.weight_unit,
-          log_type: exercise?.log_type ?? "weight_reps",
-        };
-      }
-    }
+  const lastSetByExercise: Record<string, LastSetRow> = {};
+  for (const row of lastSetsData ?? []) {
+    lastSetByExercise[row.exercise_id] = row;
   }
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Progress</h1>
-      {exercises.length === 0 && (
+      {(exercises ?? []).length === 0 && (
         <p className="text-muted-foreground text-sm text-center py-12">
           Log some workouts to track progress here!
         </p>
       )}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {exercises.map((ex) => (
+        {(exercises ?? []).map((ex) => (
           <Card key={ex.id}>
             <Link href={`/progress/${ex.id}`}>
               <CardContent className="flex items-center justify-between py-4">
