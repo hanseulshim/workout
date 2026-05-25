@@ -101,7 +101,7 @@ export function ExerciseEditorCard({
                   onClick={onUnlinkSuperset}
                   title="Remove from superset"
                 >
-                  <Link2Off className="h-3.5 w-3.5 text-orange-400" />
+                  <Link2Off className="h-3.5 w-3.5 text-warning" />
                 </Button>
               )}
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove}>
@@ -134,7 +134,7 @@ export function SupersetLinkButton({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-1.5 py-3 text-xs text-muted-foreground hover:text-orange-400 transition-colors"
+      className="w-full flex items-center justify-center gap-1.5 py-3 text-xs text-muted-foreground hover:text-warning transition-colors"
     >
       <Link2 className="h-3.5 w-3.5" />
       {extending ? "Add to Superset" : "Link as Superset"}
@@ -145,9 +145,9 @@ export function SupersetLinkButton({
 /** Colored left-border wrapper for superset groups */
 export function SupersetGroup({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative pl-3 border-l-2 border-orange-400 space-y-2">
+    <div className="relative pl-3 border-l-2 border-warning space-y-2">
       <div className="flex items-center gap-1.5 mb-1">
-        <Badge className="text-xs bg-orange-400 text-white">Superset</Badge>
+        <Badge className="text-xs bg-warning text-white">Superset</Badge>
       </div>
       {children}
     </div>

@@ -70,7 +70,7 @@ export function HevyImportExerciseMappingCard({
                 ) : matched ? (
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
                 ) : (
-                  <PlusCircle className="h-4 w-4 shrink-0 text-orange-500" />
+                  <PlusCircle className="h-4 w-4 shrink-0 text-warning" />
                 )}
 
                 <div className="min-w-0 flex-1">
@@ -127,7 +127,7 @@ export function HevyImportExerciseMappingCard({
                   ) : matched ? (
                     <Badge variant="secondary">Matched</Badge>
                   ) : (
-                    <Badge variant="outline" className="border-orange-500 text-orange-500">
+                    <Badge variant="outline" className="border-warning text-warning">
                       Create new
                     </Badge>
                   )}

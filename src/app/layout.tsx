@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: "Workout Tracker",
   description: "Track your workouts, routines, and progress",
   manifest: "/manifest.json",
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
