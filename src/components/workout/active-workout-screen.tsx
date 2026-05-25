@@ -229,12 +229,10 @@ export function ActiveWorkoutScreen() {
           name={activeWorkout.name}
           startedAt={activeWorkout.startedAt}
           now={now}
-          defaultWeightUnit={defaultWeightUnit}
           finishing={finishing}
           completedSets={completedSets}
           totalSets={totalSets}
           progress={progress}
-          onWeightUnitToggle={handleWeightUnitToggle}
           onDiscard={handleDiscard}
           onFinishClick={() => setFinishConfirmOpen(true)}
         />

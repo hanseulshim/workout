@@ -1,10 +1,8 @@
 "use client";
 
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import type { WeightUnit } from "@/types/database";
 
 function formatElapsed(startedAt: string, now: number | null): string {
   const startMs = new Date(startedAt).getTime();
@@ -23,12 +21,10 @@ interface ActiveWorkoutHeaderProps {
   name: string;
   startedAt: string;
   now: number | null;
-  defaultWeightUnit: WeightUnit;
   finishing: boolean;
   completedSets: number;
   totalSets: number;
   progress: number;
-  onWeightUnitToggle: (unit: WeightUnit) => void;
   onDiscard: () => void;
   onFinishClick: () => void;
 }
@@ -37,12 +33,10 @@ export function ActiveWorkoutHeader({
   name,
   startedAt,
   now,
-  defaultWeightUnit,
   finishing,
   completedSets,
   totalSets,
   progress,
-  onWeightUnitToggle,
   onDiscard,
   onFinishClick,
 }: ActiveWorkoutHeaderProps) {
@@ -55,22 +49,7 @@ export function ActiveWorkoutHeader({
             {formatElapsed(startedAt, now)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="flex overflow-hidden rounded-md border">
-            {(["lbs", "kg"] as WeightUnit[]).map((unit) => (
-              <button
-                key={unit}
-                type="button"
-                onClick={() => onWeightUnitToggle(unit)}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-medium uppercase transition-colors",
-                  defaultWeightUnit === unit ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
-                )}
-              >
-                {unit}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={onDiscard}>
             <X className="h-4 w-4" />
           </Button>
