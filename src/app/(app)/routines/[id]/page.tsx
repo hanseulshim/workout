@@ -21,7 +21,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   const [{ data: routine, error: routineError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase
       .from("routines")
-      .select(`*, routine_exercises(position, default_sets, default_reps, set_targets, exercises(id, name, muscle_group))`)
+      .select(`*, routine_exercises(position, default_sets, default_reps, set_targets, exercises(id, name, muscle_group, log_type))`)
       .eq("id", id)
       .eq("user_id", user.id)
       .single(),
@@ -44,7 +44,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
     default_sets: number;
     default_reps: number | null;
     set_targets: Array<{ reps: string }> | null;
-    exercises: { id: string; name: string; muscle_group: string } | null;
+    exercises: { id: string; name: string; muscle_group: string; log_type: string } | null;
   }>)
     .sort((a, b) => a.position - b.position)
     .filter((re) => re.exercises);
@@ -125,17 +125,45 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {exercises.map((re) => (
-            <div key={re.exercises!.id} className="flex items-center justify-between text-sm">
-              <div>
-                <span className="font-medium">{re.exercises!.name}</span>
-                <span className="text-muted-foreground ml-2">{re.exercises!.muscle_group}</span>
+          {exercises.map((re) => {
+            const ex = re.exercises!;
+            const isDuration = ex.log_type === "duration";
+            const targets = re.set_targets ?? [];
+            const numSets = targets.length || re.default_sets;
+
+            // Summarise reps/duration: show "N × val" if all targets equal, else just "N sets"
+            let setsSummary = `${numSets} sets`;
+            if (targets.length > 0) {
+              const vals = targets.map((t) => t.reps);
+              const allSame = vals.every((v) => v === vals[0]);
+              if (allSame && vals[0]) {
+                const val = vals[0];
+                const display = isDuration
+                  ? (Number(val) >= 60
+                      ? `${Math.floor(Number(val) / 60)}:${String(Number(val) % 60).padStart(2, "0")}`
+                      : `${val}s`)
+                  : `${val} reps`;
+                setsSummary = `${numSets} × ${display}`;
+              }
+            } else if (re.default_reps) {
+              const display = isDuration
+                ? (re.default_reps >= 60
+                    ? `${Math.floor(re.default_reps / 60)}:${String(re.default_reps % 60).padStart(2, "0")}`
+                    : `${re.default_reps}s`)
+                : `${re.default_reps} reps`;
+              setsSummary = `${numSets} × ${display}`;
+            }
+
+            return (
+              <div key={ex.id} className="grid grid-cols-[1fr_auto] items-center gap-4 text-sm">
+                <div className="min-w-0">
+                  <span className="font-medium truncate block">{ex.name}</span>
+                  <span className="text-muted-foreground text-xs capitalize">{ex.muscle_group}</span>
+                </div>
+                <span className="text-muted-foreground text-xs whitespace-nowrap tabular-nums">{setsSummary}</span>
               </div>
-              <span className="text-muted-foreground text-xs">
-                {re.set_targets ? re.set_targets.length : re.default_sets} sets
-              </span>
-            </div>
-          ))}
+            );
+          })}
           {exercises.length === 0 && (
             <p className="text-sm text-muted-foreground">No exercises added yet.</p>
           )}
