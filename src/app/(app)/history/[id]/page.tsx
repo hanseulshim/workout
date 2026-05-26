@@ -95,6 +95,12 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
           const logType = exerciseSets[0]?.exercises?.log_type ?? "weight_reps";
           const isDuration = logType === "duration";
           const isBodyweightOnly = logType === "bodyweight_reps";
+          const showWeight = !isDuration && !isBodyweightOnly;
+          const colClass = showWeight ? "grid-cols-[2rem_1fr_1fr]" : "grid-cols-[2rem_1fr]";
+          const weightLabel = logType === "weighted_bodyweight" ? "+Weight" : logType === "assisted_bodyweight" ? "Assist" : "Weight";
+
+          const formatDuration = (s: number) =>
+            s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
 
           return (
             <Card key={exerciseId}>
@@ -102,57 +108,27 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
                 <CardTitle className="text-base">{exerciseName}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-1">
-                  {isDuration ? (
-                    <>
-                      <div className="mb-2 grid grid-cols-2 text-xs font-medium text-muted-foreground">
-                        <span>Set</span>
-                        <span className="text-center">Duration</span>
-                      </div>
-                      {exerciseSets.map((setItem) => (
-                        <div key={setItem.id} className="grid grid-cols-2 text-sm">
-                          <span className="text-muted-foreground">{setItem.set_number}</span>
-                          <span className="text-center">
-                            {setItem.duration_seconds != null
-                              ? setItem.duration_seconds >= 60
-                                ? `${Math.floor(setItem.duration_seconds / 60)}m ${setItem.duration_seconds % 60}s`
-                                : `${setItem.duration_seconds}s`
-                              : "—"}
-                          </span>
-                        </div>
-                      ))}
-                    </>
-                  ) : isBodyweightOnly ? (
-                    <>
-                      <div className="mb-2 grid grid-cols-2 text-xs font-medium text-muted-foreground">
-                        <span>Set</span>
-                        <span className="text-center">Reps</span>
-                      </div>
-                      {exerciseSets.map((setItem) => (
-                        <div key={setItem.id} className="grid grid-cols-2 text-sm">
-                          <span className="text-muted-foreground">{setItem.set_number}</span>
-                          <span className="text-center">{setItem.reps ?? "—"}</span>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      <div className="mb-2 grid grid-cols-3 text-xs font-medium text-muted-foreground">
-                        <span>Set</span>
-                        <span className="text-center">{logType === "weighted_bodyweight" ? "+Weight" : logType === "assisted_bodyweight" ? "Assist" : "Weight"}</span>
-                        <span className="text-center">Reps</span>
-                      </div>
-                      {exerciseSets.map((setItem) => (
-                        <div key={setItem.id} className="grid grid-cols-3 text-sm">
-                          <span className="text-muted-foreground">{setItem.set_number}</span>
-                          <span className="text-center">
-                            {setItem.weight != null ? `${setItem.weight} ${setItem.weight_unit}` : setItem.is_bodyweight ? "BW" : "—"}
-                          </span>
-                          <span className="text-center">{setItem.reps ?? "—"}</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
+                <div className="space-y-1.5">
+                  <div className={`grid ${colClass} gap-2 px-1 text-xs font-medium text-muted-foreground`}>
+                    <span className="text-center">Set</span>
+                    {showWeight && <span className="text-center">{weightLabel}</span>}
+                    <span className="text-center">{isDuration ? "Duration" : "Reps"}</span>
+                  </div>
+                  {exerciseSets.map((setItem) => (
+                    <div key={setItem.id} className={`grid ${colClass} gap-2 items-center`}>
+                      <span className="text-xs font-medium text-center text-muted-foreground">{setItem.set_number}</span>
+                      {showWeight && (
+                        <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-muted/30 tabular-nums">
+                          {setItem.weight != null ? `${setItem.weight} ${setItem.weight_unit}` : setItem.is_bodyweight ? "BW" : "—"}
+                        </span>
+                      )}
+                      <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-muted/30 tabular-nums">
+                        {isDuration
+                          ? (setItem.duration_seconds != null ? formatDuration(setItem.duration_seconds) : "—")
+                          : (setItem.reps ?? "—")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
