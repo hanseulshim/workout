@@ -155,13 +155,17 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
             }
 
             return (
-              <div key={ex.id} className="grid grid-cols-[1fr_auto] items-center gap-4 text-sm">
+              <Link
+                key={ex.id}
+                href={`/progress/${ex.id}`}
+                className="grid grid-cols-[1fr_auto] items-center gap-4 text-sm rounded-md hover:bg-muted/50 -mx-2 px-2 py-1 transition-colors"
+              >
                 <div className="min-w-0">
                   <span className="font-medium truncate block">{ex.name}</span>
                   <span className="text-muted-foreground text-xs capitalize">{ex.muscle_group}</span>
                 </div>
                 <span className="text-muted-foreground text-xs whitespace-nowrap tabular-nums">{setsSummary}</span>
-              </div>
+              </Link>
             );
           })}
           {exercises.length === 0 && (
