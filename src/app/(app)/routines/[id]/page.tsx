@@ -116,71 +116,6 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* Exercise list */}
-      <div className="space-y-3">
-        {exercises.map((re) => {
-          const ex = re.exercises!;
-          const isDuration = ex.log_type === "duration";
-          const showWeight = ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.log_type);
-          const weightLabel = ex.log_type === "weighted_bodyweight" ? "+Weight" : ex.log_type === "assisted_bodyweight" ? "Assist" : "Weight";
-          const colClass = showWeight ? "grid-cols-[2rem_1fr_1fr]" : "grid-cols-[2rem_1fr]";
-
-          const targets = re.set_targets ?? [];
-          const numSets = targets.length || re.default_sets;
-
-          // Build display rows
-          const rows: { weight?: string; reps: string }[] = targets.length > 0
-            ? targets.map((t) => ({ weight: (t as { reps: string; weight?: string }).weight, reps: t.reps }))
-            : Array.from({ length: numSets }, () => ({
-                weight: undefined,
-                reps: re.default_reps != null ? String(re.default_reps) : "",
-              }));
-
-          const formatReps = (val: string) => {
-            if (!isDuration || !val) return val || "—";
-            const s = Number(val);
-            return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
-          };
-
-          return (
-            <Link key={ex.id} href={`/progress/${ex.id}`} className="block group">
-              <Card className="transition-colors group-hover:bg-muted/30">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-base truncate">{ex.name}</CardTitle>
-                    <span className="text-xs text-muted-foreground shrink-0">{rows.length} sets</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground capitalize">{ex.muscle_group}</p>
-                </CardHeader>
-                <CardContent className="pt-0 space-y-1.5">
-                  <div className={`grid ${colClass} gap-2 px-1`}>
-                    <span className="text-xs text-muted-foreground text-center">Set</span>
-                    {showWeight && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
-                    <span className="text-xs text-muted-foreground text-center">{isDuration ? "Duration" : "Reps"}</span>
-                  </div>
-                  {rows.map((row, i) => (
-                    <div key={i} className={`grid ${colClass} gap-2 items-center`}>
-                      <span className="text-xs font-medium text-center text-muted-foreground">{i + 1}</span>
-                      {showWeight && (
-                        <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-background">
-                          {row.weight ? `${row.weight}` : "—"}
-                        </span>
-                      )}
-                      <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-background tabular-nums">
-                        {formatReps(row.reps)}
-                      </span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-        {exercises.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">No exercises added yet.</p>
-        )}
-      </div>
-
       {/* Volume chart */}
       {volumeBySession.length > 1 && (
         <Card>
@@ -212,6 +147,75 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
         <p className="text-sm text-muted-foreground text-center py-6">
           No sessions yet. Hit <strong>Start</strong> to log your first workout!
         </p>
+      )}
+
+      {/* Exercise list — compact, collapsed by default */}
+      {exercises.length > 0 && (
+        <details className="group">
+          <summary className="flex cursor-pointer items-center justify-between rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
+            <span>Exercises ({exercises.length})</span>
+            <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </summary>
+          <div className="mt-3 space-y-3">
+            {exercises.map((re) => {
+              const ex = re.exercises!;
+              const isDuration = ex.log_type === "duration";
+              const showWeight = ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.log_type);
+              const weightLabel = ex.log_type === "weighted_bodyweight" ? "+Weight" : ex.log_type === "assisted_bodyweight" ? "Assist" : "Weight";
+              const colClass = showWeight ? "grid-cols-[2rem_1fr_1fr]" : "grid-cols-[2rem_1fr]";
+
+              const targets = re.set_targets ?? [];
+              const numSets = targets.length || re.default_sets;
+
+              const rows: { weight?: string; reps: string }[] = targets.length > 0
+                ? targets.map((t) => ({ weight: (t as { reps: string; weight?: string }).weight, reps: t.reps }))
+                : Array.from({ length: numSets }, () => ({
+                    weight: undefined,
+                    reps: re.default_reps != null ? String(re.default_reps) : "",
+                  }));
+
+              const formatReps = (val: string) => {
+                if (!isDuration || !val) return val || "—";
+                const s = Number(val);
+                return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
+              };
+
+              return (
+                <Link key={ex.id} href={`/progress/${ex.id}`} className="block group/card">
+                  <Card className="transition-colors group-hover/card:bg-muted/30">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-base truncate">{ex.name}</CardTitle>
+                        <span className="text-xs text-muted-foreground shrink-0">{rows.length} sets</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground capitalize">{ex.muscle_group}</p>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-1.5">
+                      <div className={`grid ${colClass} gap-2 px-1`}>
+                        <span className="text-xs text-muted-foreground text-center">Set</span>
+                        {showWeight && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
+                        <span className="text-xs text-muted-foreground text-center">{isDuration ? "Duration" : "Reps"}</span>
+                      </div>
+                      {rows.map((row, i) => (
+                        <div key={i} className={`grid ${colClass} gap-2 items-center`}>
+                          <span className="text-xs font-medium text-center text-muted-foreground">{i + 1}</span>
+                          {showWeight && (
+                            <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-background">
+                              {row.weight ?? "—"}
+                            </span>
+                          )}
+                          <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-background tabular-nums">
+                            {formatReps(row.reps)}
+                          </span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </details>
       )}
     </div>
   );
