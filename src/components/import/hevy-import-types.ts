@@ -68,6 +68,7 @@ export interface ImportProgressState {
 
 export interface ImportResult {
   importedSessions: number;
+  repairedSessions: number;
   skippedSessions: number;
   failedSessions: number;
   createdExercises: number;

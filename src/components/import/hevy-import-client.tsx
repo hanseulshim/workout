@@ -7,7 +7,7 @@ import { HevyImportPreview } from "./hevy-import-preview";
 import { HevyImportProgressCard } from "./hevy-import-progress-card";
 import { HevyImportSummaryCard } from "./hevy-import-summary-card";
 import { HevyImportUploadCard } from "./hevy-import-upload-card";
-import type { ExistingExercise, ImportPhase, ImportProgressState, ImportResult, PreviewData, Props } from "./hevy-import-types";
+import type { ExistingExercise, HevyRow, ImportPhase, ImportProgressState, ImportResult, PreviewData, Props } from "./hevy-import-types";
 import {
   buildPreviewData,
   buildRoutineExerciseRows,
@@ -167,8 +167,30 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
       }
 
       let importedSessions = 0;
+      let repairedSessions = 0;
       let skippedSessions = 0;
       let failedSessions = 0;
+
+      const buildSetRows = (rows: HevyRow[], sessionId: string, completedAt: string) =>
+        rows
+          .filter((row) => !excludedExercises.has(row.exercise_title))
+          .map((row) => {
+            const exerciseId = exerciseIdMap.get(normalizeName(row.exercise_title));
+            if (!exerciseId) throw new Error(`Missing exercise mapping for ${row.exercise_title}`);
+            const weightMissing = row.weight_lbs.trim() === "";
+            const logType = inferLogType(row);
+            return {
+              session_id: sessionId,
+              exercise_id: exerciseId,
+              set_number: toInt(row.set_index, 0) + 1,
+              reps: logType === "duration" ? null : (row.reps ? toInt(row.reps, 0) : null),
+              weight: weightMissing ? null : toFloat(row.weight_lbs, 0),
+              weight_unit: "lbs" as const,
+              is_bodyweight: weightMissing && row.reps.trim() !== "",
+              duration_seconds: logType === "duration" ? (row.duration_seconds ? toInt(row.duration_seconds, 0) : null) : null,
+              completed_at: completedAt,
+            };
+          });
 
       for (const [index, session] of preview.sessions.entries()) {
         setProgress({ completed: index, total: preview.sessions.length, currentSession: session.title });
@@ -193,40 +215,49 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
         if (sessionError) throw new Error(`Failed to import session: ${session.title}`);
 
         if (!insertedSession) {
-          // Session already existed — backfill routine_id if it was previously null
-          if (routineId) {
-            await supabase
-              .from("workout_sessions")
-              .update({ routine_id: routineId })
-              .eq("user_id", userId)
-              .eq("started_at", session.isoStartTime)
-              .is("routine_id", null);
+          // Session already existed — fetch its id for potential repair and routine_id backfill
+          const { data: existingSession } = await supabase
+            .from("workout_sessions")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("started_at", session.isoStartTime)
+            .single();
+
+          if (existingSession) {
+            if (routineId) {
+              await supabase
+                .from("workout_sessions")
+                .update({ routine_id: routineId })
+                .eq("id", existingSession.id)
+                .is("routine_id", null);
+            }
+
+            // Repair: if session has no sets, insert them now
+            const { count } = await supabase
+              .from("workout_sets")
+              .select("id", { count: "exact", head: true })
+              .eq("session_id", existingSession.id);
+
+            if (count === 0) {
+              const setRows = buildSetRows(session.rows, existingSession.id, session.isoStartTime);
+              const { error: repairError } = await supabase.from("workout_sets").insert(setRows);
+              if (repairError) {
+                console.warn(`Failed to repair sets for session ${session.title}`, repairError);
+                failedSessions += 1;
+              } else {
+                repairedSessions += 1;
+              }
+              setProgress({ completed: index + 1, total: preview.sessions.length, currentSession: session.title });
+              continue;
+            }
           }
+
           skippedSessions += 1;
           setProgress({ completed: index + 1, total: preview.sessions.length, currentSession: session.title });
           continue;
         }
 
-        const setRows = session.rows
-          .filter((row) => !excludedExercises.has(row.exercise_title))
-          .map((row) => {
-            const exerciseId = exerciseIdMap.get(normalizeName(row.exercise_title));
-            if (!exerciseId) throw new Error(`Missing exercise mapping for ${row.exercise_title}`);
-
-            const weightMissing = row.weight_lbs.trim() === "";
-            const logType = inferLogType(row);
-            return {
-              session_id: insertedSession.id,
-              exercise_id: exerciseId,
-              set_number: toInt(row.set_index, 0) + 1,
-              reps: logType === "duration" ? null : (row.reps ? toInt(row.reps, 0) : null),
-              weight: weightMissing ? null : toFloat(row.weight_lbs, 0),
-              weight_unit: "lbs" as const,
-              is_bodyweight: weightMissing && row.reps.trim() !== "",
-              duration_seconds: logType === "duration" ? (row.duration_seconds ? toInt(row.duration_seconds, 0) : null) : null,
-              completed_at: session.isoStartTime,
-            };
-          });
+        const setRows = buildSetRows(session.rows, insertedSession.id, session.isoStartTime);
 
         const { error: setError } = await supabase.from("workout_sets").insert(setRows);
         if (setError) {
@@ -241,11 +272,13 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
         setProgress({ completed: index + 1, total: preview.sessions.length, currentSession: session.title });
       }
 
-      setResult({ importedSessions, skippedSessions, failedSessions, createdExercises, createdRoutines });
+      setResult({ importedSessions, repairedSessions, skippedSessions, failedSessions, createdExercises, createdRoutines });
       setPhase("done");
-      toast.success(
-        failedSessions > 0 ? `Imported ${importedSessions} sessions. ${failedSessions} rolled back.` : "Hevy import complete",
-      );
+      const parts: string[] = [];
+      if (importedSessions > 0) parts.push(`${importedSessions} imported`);
+      if (repairedSessions > 0) parts.push(`${repairedSessions} repaired`);
+      if (failedSessions > 0) parts.push(`${failedSessions} rolled back`);
+      toast.success(parts.length > 0 ? `Hevy import complete: ${parts.join(", ")}` : "Hevy import complete");
     } catch (error) {
       setKnownExercises(nextKnownExercises);
       setPreview(buildPreviewData(preview.rows, nextKnownExercises, preview.fileName));

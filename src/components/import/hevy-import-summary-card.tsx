@@ -21,6 +21,9 @@ export function HevyImportSummaryCard({ fileName, result, onReset }: Props) {
         </CardHeader>
         <CardContent className="space-y-3">
           <SummaryRow label="Sessions imported" value={result.importedSessions.toString()} />
+          {result.repairedSessions > 0 && (
+            <SummaryRow label="Sessions repaired (missing sets filled in)" value={result.repairedSessions.toString()} />
+          )}
           <SummaryRow label="Duplicate sessions skipped" value={result.skippedSessions.toString()} />
           <SummaryRow label="Sessions rolled back" value={result.failedSessions.toString()} />
           <SummaryRow label="Exercises created" value={result.createdExercises.toString()} />
