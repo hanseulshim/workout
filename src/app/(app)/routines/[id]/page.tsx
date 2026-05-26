@@ -124,47 +124,61 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
             Exercises
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="divide-y">
           {exercises.map((re) => {
             const ex = re.exercises!;
             const isDuration = ex.log_type === "duration";
             const targets = re.set_targets ?? [];
             const numSets = targets.length || re.default_sets;
 
-            // Summarise reps/duration: show "N × val" if all targets equal, else just "N sets"
-            let setsSummary = `${numSets} sets`;
-            if (targets.length > 0) {
-              const vals = targets.map((t) => t.reps);
-              const allSame = vals.every((v) => v === vals[0]);
-              if (allSame && vals[0]) {
-                const val = vals[0];
-                const display = isDuration
-                  ? (Number(val) >= 60
-                      ? `${Math.floor(Number(val) / 60)}:${String(Number(val) % 60).padStart(2, "0")}`
-                      : `${val}s`)
-                  : `${val} reps`;
-                setsSummary = `${numSets} × ${display}`;
+            const formatVal = (val: string) => {
+              if (isDuration) {
+                const s = Number(val);
+                return s >= 60
+                  ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
+                  : `${s}s`;
               }
-            } else if (re.default_reps) {
-              const display = isDuration
-                ? (re.default_reps >= 60
-                    ? `${Math.floor(re.default_reps / 60)}:${String(re.default_reps % 60).padStart(2, "0")}`
-                    : `${re.default_reps}s`)
-                : `${re.default_reps} reps`;
-              setsSummary = `${numSets} × ${display}`;
-            }
+              return val;
+            };
+
+            // Build per-set chips: "20 lbs × 8" or "8" or "1:30"
+            const chips: string[] = targets.length > 0
+              ? targets.map((t) => {
+                  const weight = (t as { reps: string; weight?: string }).weight;
+                  const val = formatVal(t.reps);
+                  return weight ? `${weight} × ${val}` : val;
+                })
+              : re.default_reps
+                ? Array(numSets).fill(formatVal(String(re.default_reps)))
+                : [];
+
+            // Collapse identical chips → "3 × 8" style label
+            const allSame = chips.length > 0 && chips.every((c) => c === chips[0]);
+            const label = allSame
+              ? `${chips.length} × ${chips[0]}`
+              : null;
 
             return (
               <Link
                 key={ex.id}
                 href={`/progress/${ex.id}`}
-                className="grid grid-cols-[1fr_auto] items-center gap-4 text-sm rounded-md hover:bg-muted/50 -mx-2 px-2 py-1 transition-colors"
+                className="flex items-center justify-between gap-3 py-2.5 text-sm hover:bg-muted/50 -mx-2 px-2 transition-colors first:pt-0 last:pb-0"
               >
                 <div className="min-w-0">
                   <span className="font-medium truncate block">{ex.name}</span>
                   <span className="text-muted-foreground text-xs capitalize">{ex.muscle_group}</span>
                 </div>
-                <span className="text-muted-foreground text-xs whitespace-nowrap tabular-nums">{setsSummary}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {label ? (
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs tabular-nums">{label}</span>
+                  ) : chips.length > 0 ? (
+                    chips.map((chip, i) => (
+                      <span key={i} className="rounded bg-muted px-2 py-0.5 text-xs tabular-nums">{chip}</span>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground text-xs">{numSets} sets</span>
+                  )}
+                </div>
               </Link>
             );
           })}
