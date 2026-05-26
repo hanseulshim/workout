@@ -4,7 +4,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Pencil, Play, Calendar, Dumbbell } from "lucide-react";
+import { ChevronLeft, Pencil, Play, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { RoutineVolumeChart } from "@/components/routines/routine-volume-chart";
 import { RoutineDeleteButton } from "@/components/routines/routine-delete-button";
@@ -117,76 +117,69 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Exercise list */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Dumbbell className="h-4 w-4" />
-            Exercises
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="divide-y">
-          {exercises.map((re) => {
-            const ex = re.exercises!;
-            const isDuration = ex.log_type === "duration";
-            const targets = re.set_targets ?? [];
-            const numSets = targets.length || re.default_sets;
+      <div className="space-y-3">
+        {exercises.map((re) => {
+          const ex = re.exercises!;
+          const isDuration = ex.log_type === "duration";
+          const showWeight = ["weight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(ex.log_type);
+          const weightLabel = ex.log_type === "weighted_bodyweight" ? "+Weight" : ex.log_type === "assisted_bodyweight" ? "Assist" : "Weight";
+          const colClass = showWeight ? "grid-cols-[2rem_1fr_1fr]" : "grid-cols-[2rem_1fr]";
 
-            const formatVal = (val: string) => {
-              if (isDuration) {
-                const s = Number(val);
-                return s >= 60
-                  ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
-                  : `${s}s`;
-              }
-              return val;
-            };
+          const targets = re.set_targets ?? [];
+          const numSets = targets.length || re.default_sets;
 
-            // Build per-set chips: "20 lbs × 8" or "8" or "1:30"
-            const chips: string[] = targets.length > 0
-              ? targets.map((t) => {
-                  const weight = (t as { reps: string; weight?: string }).weight;
-                  const val = formatVal(t.reps);
-                  return weight ? `${weight} × ${val}` : val;
-                })
-              : re.default_reps
-                ? Array(numSets).fill(formatVal(String(re.default_reps)))
-                : [];
+          // Build display rows
+          const rows: { weight?: string; reps: string }[] = targets.length > 0
+            ? targets.map((t) => ({ weight: (t as { reps: string; weight?: string }).weight, reps: t.reps }))
+            : Array.from({ length: numSets }, () => ({
+                weight: undefined,
+                reps: re.default_reps != null ? String(re.default_reps) : "",
+              }));
 
-            // Collapse identical chips → "3 × 8" style label
-            const allSame = chips.length > 0 && chips.every((c) => c === chips[0]);
-            const label = allSame
-              ? `${chips.length} × ${chips[0]}`
-              : null;
+          const formatReps = (val: string) => {
+            if (!isDuration || !val) return val || "—";
+            const s = Number(val);
+            return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
+          };
 
-            return (
-              <Link
-                key={ex.id}
-                href={`/progress/${ex.id}`}
-                className="flex items-center justify-between gap-3 py-2.5 text-sm hover:bg-muted/50 -mx-2 px-2 transition-colors first:pt-0 last:pb-0"
-              >
-                <div className="min-w-0">
-                  <span className="font-medium truncate block">{ex.name}</span>
-                  <span className="text-muted-foreground text-xs capitalize">{ex.muscle_group}</span>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {label ? (
-                    <span className="rounded bg-muted px-2 py-0.5 text-xs tabular-nums">{label}</span>
-                  ) : chips.length > 0 ? (
-                    chips.map((chip, i) => (
-                      <span key={i} className="rounded bg-muted px-2 py-0.5 text-xs tabular-nums">{chip}</span>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-xs">{numSets} sets</span>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-          {exercises.length === 0 && (
-            <p className="text-sm text-muted-foreground">No exercises added yet.</p>
-          )}
-        </CardContent>
-      </Card>
+          return (
+            <Link key={ex.id} href={`/progress/${ex.id}`} className="block group">
+              <Card className="transition-colors group-hover:bg-muted/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-base truncate">{ex.name}</CardTitle>
+                    <span className="text-xs text-muted-foreground shrink-0">{rows.length} sets</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground capitalize">{ex.muscle_group}</p>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-1.5">
+                  <div className={`grid ${colClass} gap-2 px-1`}>
+                    <span className="text-xs text-muted-foreground text-center">Set</span>
+                    {showWeight && <span className="text-xs text-muted-foreground text-center">{weightLabel}</span>}
+                    <span className="text-xs text-muted-foreground text-center">{isDuration ? "Duration" : "Reps"}</span>
+                  </div>
+                  {rows.map((row, i) => (
+                    <div key={i} className={`grid ${colClass} gap-2 items-center`}>
+                      <span className="text-xs font-medium text-center text-muted-foreground">{i + 1}</span>
+                      {showWeight && (
+                        <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-background">
+                          {row.weight ? `${row.weight}` : "—"}
+                        </span>
+                      )}
+                      <span className="h-8 flex items-center justify-center text-sm border rounded-md bg-background tabular-nums">
+                        {formatReps(row.reps)}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+        {exercises.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">No exercises added yet.</p>
+        )}
+      </div>
 
       {/* Volume chart */}
       {volumeBySession.length > 1 && (
