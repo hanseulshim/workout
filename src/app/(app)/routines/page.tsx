@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { WeeklySchedule } from "@/components/routines/weekly-schedule";
 import { RoutineListWithFilter } from "@/components/routines/routine-list-with-filter";
 export const metadata = { title: "Routines | Workout" };
 
@@ -44,8 +43,6 @@ export default async function RoutinesPage() {
           New
         </Link>
       </div>
-
-      <WeeklySchedule routines={listRoutines} />
 
       <RoutineListWithFilter routines={listRoutines} today={today} />
     </div>
