@@ -472,6 +472,10 @@ export const useWorkoutStore = create<WorkoutStore>()(
           };
         }),
     }),
-    { name: "active-workout", version: 1 }
+    {
+      name: "active-workout",
+      version: 1,
+      migrate: (state) => state,
+    }
   )
 );
