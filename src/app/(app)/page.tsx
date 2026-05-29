@@ -13,9 +13,11 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
+  const today = new Date().getDay();
+
   const [
     { data: recentWorkouts, error: workoutsError },
-    { data: routines, error: routinesError },
+    { data: routinesRaw, error: routinesError },
   ] = await Promise.all([
     supabase
       .from("workout_sessions")
@@ -26,15 +28,18 @@ export default async function DashboardPage() {
       .limit(3),
     supabase
       .from("routines")
-      .select("id, name")
+      .select("id, name, days")
       .eq("user_id", user.id)
       .order("last_used_at", { ascending: false, nullsFirst: false })
-      .order("updated_at", { ascending: false })
-      .limit(4),
+      .order("updated_at", { ascending: false }),
   ]);
 
   if (workoutsError) throw workoutsError;
   if (routinesError) throw routinesError;
+
+  const routines = routinesRaw ?? [];
+  const todayRoutines = routines.filter((r) => ((r.days as number[]) ?? []).includes(today));
+  const otherRoutines = routines.filter((r) => !((r.days as number[]) ?? []).includes(today)).slice(0, 4);
 
   return (
     <div className="space-y-6">
@@ -43,26 +48,49 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">Ready to train?</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/workout/start" className={cn(buttonVariants({ size: "lg" }), "h-16 text-base")}>
-          <Play className="mr-2 h-5 w-5" />
-          Start Workout
-        </Link>
-        <Link href="/routines/new" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-16 text-base")}>
-          <Plus className="mr-2 h-5 w-5" />
-          New Routine
-        </Link>
-      </div>
+      {/* Today's routines */}
+      {todayRoutines.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today</h2>
+          {todayRoutines.map((routine) => (
+            <Card key={routine.id} className="border-primary/40 bg-primary/5">
+              <CardContent className="flex items-center justify-between gap-2 py-3">
+                <Link href={`/routines/${routine.id}`} className="min-w-0 flex-1 font-medium truncate">
+                  {routine.name}
+                </Link>
+                <Link
+                  href={`/workout/start?routine=${routine.id}`}
+                  className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
+                >
+                  <Play className="mr-1.5 h-3.5 w-3.5" />
+                  Start
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/workout/start" className={cn(buttonVariants({ size: "lg" }), "h-16 text-base")}>
+            <Play className="mr-2 h-5 w-5" />
+            Start Workout
+          </Link>
+          <Link href="/routines/new" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-16 text-base")}>
+            <Plus className="mr-2 h-5 w-5" />
+            New Routine
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        {routines && routines.length > 0 && (
+        {routines.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">My Routines</h2>
               <Link href="/routines" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
             </div>
             <div className="space-y-2">
-              {routines.map((routine) => (
+              {otherRoutines.map((routine) => (
                 <Card key={routine.id} className="cursor-pointer transition-colors hover:bg-muted/50">
                   <Link href={`/routines/${routine.id}`}>
                     <CardContent className="flex items-center justify-between py-4">
@@ -100,7 +128,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {!routines?.length && !recentWorkouts?.length && (
+      {!routines.length && !recentWorkouts?.length && (
         <Card>
           <CardHeader>
             <CardTitle>Welcome! 👋</CardTitle>
