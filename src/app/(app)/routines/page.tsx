@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Plus, Pencil, Play } from "lucide-react";
+import { Plus, Pencil, Play, FileJson } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -37,10 +37,16 @@ export default async function RoutinesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Routines</h1>
-        <Link href="/routines/new" className={cn(buttonVariants({ size: "sm" }))}>
-          <Plus className="mr-1 h-4 w-4" />
-          New
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/routines/import-json" className={cn(buttonVariants({ size: "sm", variant: "outline" }))}>
+            <FileJson className="mr-1 h-4 w-4" />
+            Import JSON
+          </Link>
+          <Link href="/routines/new" className={cn(buttonVariants({ size: "sm" }))}>
+            <Plus className="mr-1 h-4 w-4" />
+            New
+          </Link>
+        </div>
       </div>
 
       <WeeklySchedule routines={scheduleRoutines} />
