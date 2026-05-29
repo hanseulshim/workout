@@ -1,7 +1,7 @@
 "use client";
 
 import { parse } from "date-fns";
-import type { LogType } from "@/types/database";
+import type { LogType, MuscleGroup } from "@/types/database";
 import type {
   ExistingExercise,
   ExercisePreview,
@@ -22,6 +22,44 @@ export function normalizeName(value: string) {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
+}
+
+type MuscleGroupRule = { keywords: RegExp; muscle_group: MuscleGroup; category: MuscleGroup };
+
+const MUSCLE_GROUP_RULES: MuscleGroupRule[] = [
+  // Legs — hamstrings (before generic "deadlift" so RDL/Nordic/Jefferson match first)
+  { keywords: /romanian deadlift|rdl|nordic hamstring|jefferson curl|good morning|leg curl/i, muscle_group: "hamstrings", category: "hamstrings" },
+  // Legs — quads
+  { keywords: /squat|leg press|leg extension|step.?up|lunge|split squat|pistol/i, muscle_group: "quads", category: "quads" },
+  // Legs — calves
+  { keywords: /calf raise|calf press|tibialis/i, muscle_group: "calves", category: "calves" },
+  // Legs — glutes
+  { keywords: /hip thrust|glute bridge|abduction|adduction|sumo/i, muscle_group: "glutes", category: "glutes" },
+  // Back
+  { keywords: /pull.?up|chin.?up|pulldown|row|pullover|pull down|lat |deadlift|back extension/i, muscle_group: "back", category: "back" },
+  // Chest
+  { keywords: /bench press|chest press|chest fly|pec|push.?up|decline push|incline push|dip/i, muscle_group: "chest", category: "chest" },
+  // Shoulders
+  { keywords: /overhead press|shoulder press|lateral raise|front raise|face pull|external rotation|internal rotation|handstand push|arnold|upright row/i, muscle_group: "shoulders", category: "shoulders" },
+  // Biceps
+  { keywords: /curl|bicep/i, muscle_group: "biceps", category: "biceps" },
+  // Triceps
+  { keywords: /tricep|skull crusher|close.?grip|overhead extension/i, muscle_group: "triceps", category: "triceps" },
+  // Core
+  { keywords: /planche|l.?sit|front lever|dragon flag|ab |abs |crunch|sit.?up|hanging leg|leg raise|hollow|tuck hold|oblique/i, muscle_group: "core", category: "core" },
+  // Full body / calisthenics skills
+  { keywords: /muscle.?up|clean|snatch|thruster|burpee|turkish/i, muscle_group: "full_body", category: "full_body" },
+  // Handstand — shoulders/core → shoulders as primary
+  { keywords: /handstand/i, muscle_group: "shoulders", category: "shoulders" },
+];
+
+export function inferMuscleGroup(name: string): { muscle_group: MuscleGroup; category: MuscleGroup } {
+  for (const rule of MUSCLE_GROUP_RULES) {
+    if (rule.keywords.test(name)) {
+      return { muscle_group: rule.muscle_group, category: rule.category };
+    }
+  }
+  return { muscle_group: "other", category: "other" };
 }
 
 export function toInt(value: string, fallback: number) {

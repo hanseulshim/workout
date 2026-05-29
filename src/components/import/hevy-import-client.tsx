@@ -13,6 +13,7 @@ import {
   buildRoutineExerciseRows,
   getMostRecentSessionForRoutine,
   inferLogType,
+  inferMuscleGroup,
   normalizeName,
   parseCSV,
   toFloat,
@@ -92,12 +93,13 @@ export function HevyImportClient({ userId, existingExercises }: Props) {
         if (excludedExercises.has(exercise.name) || exerciseIdMap.has(normalizeName(exercise.name))) continue;
 
         const effective = effectiveName(exercise.name);
+        const { muscle_group, category } = inferMuscleGroup(effective);
         const { data, error } = await supabase
           .from("exercises")
           .insert({
             name: effective,
-            muscle_group: "other",
-            category: "other",
+            muscle_group,
+            category,
             log_type: exercise.inferredLogType,
             is_custom: true,
             user_id: userId,
