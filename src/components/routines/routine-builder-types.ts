@@ -19,6 +19,7 @@ export interface RoutineExerciseRow {
 export interface ExistingRoutine {
   id: string;
   name: string;
+  days: number[];
   routine_exercises: RoutineExerciseRow[];
 }
 

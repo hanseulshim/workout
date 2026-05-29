@@ -14,7 +14,7 @@ export default async function EditRoutinePage({ params }: { params: Promise<{ id
   const [{ data: routine, error: routineError }, { data: exercises, error: exercisesError }] = await Promise.all([
     supabase
       .from("routines")
-      .select(`id, name, routine_exercises(id, exercise_id, position, default_sets, default_reps, set_targets, superset_id, notes, rest_seconds, exercises(id, name, log_type, gif_url))`)
+      .select(`id, name, days, routine_exercises(id, exercise_id, position, default_sets, default_reps, set_targets, superset_id, notes, rest_seconds, exercises(id, name, log_type, gif_url))`)
       .eq("id", id)
       .eq("user_id", user.id)
       .single(),

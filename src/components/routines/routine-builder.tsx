@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { Exercise } from "@/types/database";
 import { RoutineBuilderExerciseGroups } from "./routine-builder-exercise-groups";
 import { saveRoutine } from "./routine-builder-save";
@@ -52,6 +53,7 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   }
 
   const [name, setName] = useState(routine?.name ?? "");
+  const [days, setDays] = useState<number[]>(routine?.days ?? []);
   const [selected, setSelected] = useState<SelectedExercise[]>(buildSelected);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,6 +62,7 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   if (prevRoutineKey.current !== routineKey) {
     prevRoutineKey.current = routineKey;
     setName(routine?.name ?? "");
+    setDays(routine?.days ?? []);
     setSelected(buildSelected());
   }
 
@@ -144,7 +147,7 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
     setSaving(true);
 
     try {
-      const routineId = await saveRoutine({ name, selected, userId, routine });
+      const routineId = await saveRoutine({ name, days, selected, userId, routine });
       toast.success(routine ? "Routine updated!" : "Routine created!");
       router.push(`/routines/${routineId}`);
     } catch (error) {
@@ -155,11 +158,37 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
     }
   }
 
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  function toggleDay(d: number) {
+    setDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Routine Name</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push Day" />
+      </div>
+      <div className="space-y-2">
+        <Label>Schedule (optional)</Label>
+        <div className="flex gap-1.5 flex-wrap">
+          {DAY_LABELS.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => toggleDay(i)}
+              className={cn(
+                "h-9 w-10 rounded-md border text-xs font-medium transition-colors",
+                days.includes(i)
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-input hover:bg-muted"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={selected.map((e) => e.exerciseId)} strategy={verticalListSortingStrategy}>
