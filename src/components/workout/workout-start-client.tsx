@@ -33,6 +33,7 @@ interface LastSet {
 interface Routine {
   id: string;
   name: string;
+  days: number[];
 }
 
 interface RoutineWithExercises extends Routine {
@@ -275,34 +276,74 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
           Start Empty Workout
         </Button>
 
-        {routines.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Start from routine</h2>
-            <div className="space-y-2">
-              {routines.map((routine) => (
-                <Card key={routine.id} className="transition-colors hover:bg-muted/30">
-                  <CardContent className="flex items-center justify-between gap-2 py-4">
-                    <button
-                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                      onClick={() => router.push(`/routines/${routine.id}`)}
-                    >
-                      <Dumbbell className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate font-medium">{routine.name}</span>
-                    </button>
-                    <button
-                      onClick={() => router.push(`/workout/start?routine=${routine.id}`)}
-                      className="min-h-[44px] min-w-[44px] shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
-                      title="Start workout"
-                      aria-label={`Start ${routine.name}`}
-                    >
-                      <Play className="h-4 w-4" />
-                    </button>
-                  </CardContent>
-                </Card>
-              ))}
+        {routines.length > 0 && (() => {
+          const today = new Date().getDay();
+          const todayRoutines = routines.filter((r) => r.days.includes(today));
+          const otherRoutines = routines.filter((r) => !r.days.includes(today));
+
+          function RoutineRow({ routine }: { routine: Routine }) {
+            return (
+              <Card key={routine.id} className="transition-colors hover:bg-muted/30">
+                <CardContent className="flex items-center justify-between gap-2 py-4">
+                  <button
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    onClick={() => router.push(`/routines/${routine.id}`)}
+                  >
+                    <Dumbbell className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium">{routine.name}</span>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/workout/start?routine=${routine.id}`)}
+                    className="min-h-[44px] min-w-[44px] shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                    title="Start workout"
+                    aria-label={`Start ${routine.name}`}
+                  >
+                    <Play className="h-4 w-4" />
+                  </button>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return (
+            <div className="space-y-4">
+              {todayRoutines.length > 0 && (
+                <div className="space-y-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today</h2>
+                  {todayRoutines.map((routine) => (
+                    <Card key={routine.id} className="border-primary/40 bg-primary/5 transition-colors hover:bg-primary/10">
+                      <CardContent className="flex items-center justify-between gap-2 py-4">
+                        <button
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          onClick={() => router.push(`/routines/${routine.id}`)}
+                        >
+                          <Dumbbell className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate font-medium">{routine.name}</span>
+                        </button>
+                        <button
+                          onClick={() => router.push(`/workout/start?routine=${routine.id}`)}
+                          className="min-h-[44px] min-w-[44px] shrink-0 rounded-md text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                          title="Start workout"
+                          aria-label={`Start ${routine.name}`}
+                        >
+                          <Play className="h-4 w-4" />
+                        </button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              {otherRoutines.length > 0 && (
+                <div className="space-y-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {todayRoutines.length > 0 ? "Other Routines" : "Start from routine"}
+                  </h2>
+                  {otherRoutines.map((routine) => <RoutineRow key={routine.id} routine={routine} />)}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </>
   );

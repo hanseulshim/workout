@@ -16,14 +16,14 @@ export default async function WorkoutStartPage({
   const [{ data: routines, error: routinesError }, { data: preselectedRoutine }, { data: bestsRaw, error: bestsError }] = await Promise.all([
     supabase
       .from("routines")
-      .select("id, name")
+      .select("id, name, days")
       .eq("user_id", user.id)
       .order("last_used_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false }),
     routineId
       ? supabase
           .from("routines")
-          .select(`id, name, routine_exercises(id, exercise_id, position, default_sets, default_reps, set_targets, superset_id, rest_seconds, notes, exercises(id, name, log_type, gif_url))`)
+          .select(`id, name, days, routine_exercises(id, exercise_id, position, default_sets, default_reps, set_targets, superset_id, rest_seconds, notes, exercises(id, name, log_type, gif_url))`)
           .eq("id", routineId)
           .eq("user_id", user.id)
           .single()
