@@ -13,7 +13,7 @@ interface SaveRoutineParams {
 
 export async function saveRoutine({ name, days, selected, userId, routine }: SaveRoutineParams) {
   const supabase = createClient();
-  const rows = selected.map((ex, i) => ({
+  const rows = selected.filter((ex) => !!ex.exerciseId).map((ex, i) => ({
     exercise_id: ex.exerciseId,
     position: i,
     default_sets: ex.sets.length,
