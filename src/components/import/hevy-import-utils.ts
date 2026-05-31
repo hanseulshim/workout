@@ -24,36 +24,89 @@ export function normalizeName(value: string) {
     .trim();
 }
 
-type MuscleGroupRule = { keywords: RegExp; muscle_group: MuscleGroup; category: ExerciseCategory };
+type MuscleGroupRule = {
+  keywords: RegExp;
+  muscle_group: MuscleGroup;
+  category: ExerciseCategory;
+};
 
 const MUSCLE_GROUP_RULES: MuscleGroupRule[] = [
   // Legs — hamstrings (before generic "deadlift" so RDL/Nordic/Jefferson match first)
-  { keywords: /romanian deadlift|rdl|nordic hamstring|jefferson curl|good morning|leg curl/i, muscle_group: "hamstrings", category: "strength" },
+  {
+    keywords:
+      /romanian deadlift|rdl|nordic hamstring|jefferson curl|good morning|leg curl/i,
+    muscle_group: "hamstrings",
+    category: "strength",
+  },
   // Legs — quads
-  { keywords: /squat|leg press|leg extension|step.?up|lunge|split squat|pistol/i, muscle_group: "quads", category: "strength" },
+  {
+    keywords:
+      /squat|leg press|leg extension|step.?up|lunge|split squat|pistol/i,
+    muscle_group: "quads",
+    category: "strength",
+  },
   // Legs — calves
-  { keywords: /calf raise|calf press|tibialis/i, muscle_group: "calves", category: "strength" },
+  {
+    keywords: /calf raise|calf press|tibialis/i,
+    muscle_group: "calves",
+    category: "strength",
+  },
   // Legs — glutes
-  { keywords: /hip thrust|glute bridge|abduction|adduction|sumo/i, muscle_group: "glutes", category: "strength" },
+  {
+    keywords: /hip thrust|glute bridge|abduction|adduction|sumo/i,
+    muscle_group: "glutes",
+    category: "strength",
+  },
   // Back
-  { keywords: /pull.?up|chin.?up|pulldown|row|pullover|pull down|lat |deadlift|back extension/i, muscle_group: "back", category: "strength" },
+  {
+    keywords:
+      /pull.?up|chin.?up|pulldown|row|pullover|pull down|lat |deadlift|back extension/i,
+    muscle_group: "back",
+    category: "strength",
+  },
   // Chest
-  { keywords: /bench press|chest press|chest fly|pec|push.?up|decline push|incline push|dip/i, muscle_group: "chest", category: "strength" },
+  {
+    keywords:
+      /bench press|chest press|chest fly|pec|push.?up|decline push|incline push|dip/i,
+    muscle_group: "chest",
+    category: "strength",
+  },
   // Shoulders
-  { keywords: /overhead press|shoulder press|lateral raise|front raise|face pull|external rotation|internal rotation|handstand push|arnold|upright row/i, muscle_group: "shoulders", category: "strength" },
+  {
+    keywords:
+      /overhead press|shoulder press|lateral raise|front raise|face pull|external rotation|internal rotation|handstand push|arnold|upright row/i,
+    muscle_group: "shoulders",
+    category: "strength",
+  },
   // Biceps
   { keywords: /curl|bicep/i, muscle_group: "biceps", category: "strength" },
   // Triceps
-  { keywords: /tricep|skull crusher|close.?grip|overhead extension/i, muscle_group: "triceps", category: "strength" },
+  {
+    keywords: /tricep|skull crusher|close.?grip|overhead extension/i,
+    muscle_group: "triceps",
+    category: "strength",
+  },
   // Core
-  { keywords: /planche|l.?sit|front lever|dragon flag|ab |abs |crunch|sit.?up|hanging leg|leg raise|hollow|tuck hold|oblique/i, muscle_group: "core", category: "strength" },
+  {
+    keywords:
+      /planche|l.?sit|front lever|dragon flag|ab |abs |crunch|sit.?up|hanging leg|leg raise|hollow|tuck hold|oblique/i,
+    muscle_group: "core",
+    category: "strength",
+  },
   // Full body / calisthenics skills
-  { keywords: /muscle.?up|clean|snatch|thruster|burpee|turkish/i, muscle_group: "full_body", category: "strength" },
+  {
+    keywords: /muscle.?up|clean|snatch|thruster|burpee|turkish/i,
+    muscle_group: "full_body",
+    category: "strength",
+  },
   // Handstand — shoulders/core → shoulders as primary
   { keywords: /handstand/i, muscle_group: "shoulders", category: "strength" },
 ];
 
-export function inferMuscleGroup(name: string): { muscle_group: MuscleGroup; category: ExerciseCategory } {
+export function inferMuscleGroup(name: string): {
+  muscle_group: MuscleGroup;
+  category: ExerciseCategory;
+} {
   for (const rule of MUSCLE_GROUP_RULES) {
     if (rule.keywords.test(name)) {
       return { muscle_group: rule.muscle_group, category: rule.category };
@@ -104,7 +157,8 @@ export function parseCSV(text: string): ParseCsvResult {
         index += 1;
       }
       currentRow.push(currentField);
-      if (currentRow.some((field) => field.trim() !== "")) rows.push(currentRow);
+      if (currentRow.some((field) => field.trim() !== ""))
+        rows.push(currentRow);
       currentField = "";
       currentRow = [];
       continue;
@@ -133,14 +187,17 @@ export function parseCSV(text: string): ParseCsvResult {
   ];
 
   for (const header of requiredHeaders) {
-    if (!headers.includes(header)) throw new Error(`Missing required header: ${header}`);
+    if (!headers.includes(header))
+      throw new Error(`Missing required header: ${header}`);
   }
 
   const warningCounts = new Map<string, number>();
   const parsedRows: HevyRow[] = [];
 
   for (const values of rows.slice(1)) {
-    const record = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
+    const record = Object.fromEntries(
+      headers.map((header, index) => [header, values[index] ?? ""]),
+    );
     const row = {
       title: record.title ?? "",
       start_time: record.start_time ?? "",
@@ -173,7 +230,8 @@ export function parseCSV(text: string): ParseCsvResult {
   }
 
   const warnings = Array.from(warningCounts.entries()).map(
-    ([reason, count]) => `${count} row${count === 1 ? "" : "s"} skipped: ${reason}`,
+    ([reason, count]) =>
+      `${count} row${count === 1 ? "" : "s"} skipped: ${reason}`,
   );
 
   return { rows: parsedRows, warnings };
@@ -194,8 +252,17 @@ export function inferLogType(row: HevyRow): LogType {
   return "weight_reps";
 }
 
-export function buildPreviewData(rows: HevyRow[], existingExercises: ExistingExercise[], fileName: string): PreviewData {
-  const existingByName = new Map(existingExercises.map((exercise) => [normalizeName(exercise.name), exercise]));
+export function buildPreviewData(
+  rows: HevyRow[],
+  existingExercises: ExistingExercise[],
+  fileName: string,
+): PreviewData {
+  const existingByName = new Map(
+    existingExercises.map((exercise) => [
+      normalizeName(exercise.name),
+      exercise,
+    ]),
+  );
   const sessionsByKey = new Map<string, HevySession>();
   const exercises = new Map<string, ExercisePreview>();
 
@@ -233,14 +300,18 @@ export function buildPreviewData(rows: HevyRow[], existingExercises: ExistingExe
   const exerciseHistoryMap = new Map<string, Map<string, string[]>>();
   for (const row of rows) {
     const normalizedExerciseName = normalizeName(row.exercise_title);
-    if (!exerciseHistoryMap.has(normalizedExerciseName)) exerciseHistoryMap.set(normalizedExerciseName, new Map());
+    if (!exerciseHistoryMap.has(normalizedExerciseName))
+      exerciseHistoryMap.set(normalizedExerciseName, new Map());
     const sessionMap = exerciseHistoryMap.get(normalizedExerciseName)!;
     if (!sessionMap.has(row.start_time)) sessionMap.set(row.start_time, []);
 
     let setLabel = `${row.reps} reps`;
     if (row.duration_seconds) {
       const seconds = parseInt(row.duration_seconds, 10);
-      setLabel = seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `${seconds}s`;
+      setLabel =
+        seconds >= 60
+          ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+          : `${seconds}s`;
     } else if (row.weight_lbs.trim() !== "") {
       setLabel = `${row.weight_lbs} × ${row.reps}`;
     }
@@ -248,16 +319,24 @@ export function buildPreviewData(rows: HevyRow[], existingExercises: ExistingExe
     sessionMap.get(row.start_time)!.push(setLabel);
   }
 
-  for (const [normalizedExerciseName, sessionMap] of exerciseHistoryMap.entries()) {
+  for (const [
+    normalizedExerciseName,
+    sessionMap,
+  ] of exerciseHistoryMap.entries()) {
     const exercise = exercises.get(normalizedExerciseName);
     if (!exercise) continue;
     exercise.history = Array.from(sessionMap.entries())
-      .sort((left, right) => new Date(right[0]).getTime() - new Date(left[0]).getTime())
+      .sort(
+        (left, right) =>
+          new Date(right[0]).getTime() - new Date(left[0]).getTime(),
+      )
       .map(([date, sets]) => ({ date, sets }));
   }
 
   const sessions = Array.from(sessionsByKey.values()).sort(
-    (left, right) => new Date(right.isoStartTime).getTime() - new Date(left.isoStartTime).getTime(),
+    (left, right) =>
+      new Date(right.isoStartTime).getTime() -
+      new Date(left.isoStartTime).getTime(),
   );
 
   return {
@@ -265,17 +344,29 @@ export function buildPreviewData(rows: HevyRow[], existingExercises: ExistingExe
     rows,
     sessions,
     routines: Array.from(new Set(sessions.map((session) => session.title))),
-    exercises: Array.from(exercises.values()).sort((left, right) => left.name.localeCompare(right.name)),
+    exercises: Array.from(exercises.values()).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    ),
   };
 }
 
-export function getMostRecentSessionForRoutine(sessions: HevySession[], routineName: string) {
+export function getMostRecentSessionForRoutine(
+  sessions: HevySession[],
+  routineName: string,
+) {
   return sessions
     .filter((session) => session.title === routineName)
-    .sort((left, right) => new Date(right.isoStartTime).getTime() - new Date(left.isoStartTime).getTime())[0];
+    .sort(
+      (left, right) =>
+        new Date(right.isoStartTime).getTime() -
+        new Date(left.isoStartTime).getTime(),
+    )[0];
 }
 
-export function buildRoutineExerciseRows(rows: HevyRow[], exerciseIdMap: Map<string, string>) {
+export function buildRoutineExerciseRows(
+  rows: HevyRow[],
+  exerciseIdMap: Map<string, string>,
+) {
   const rowsByExercise = new Map<string, HevyRow[]>();
   const exerciseOrder: string[] = [];
   const supersetMembers = new Map<string, Set<string>>();
@@ -290,7 +381,8 @@ export function buildRoutineExerciseRows(rows: HevyRow[], exerciseIdMap: Map<str
 
     const supersetKey = row.superset_id.trim();
     if (supersetKey) {
-      if (!supersetMembers.has(supersetKey)) supersetMembers.set(supersetKey, new Set());
+      if (!supersetMembers.has(supersetKey))
+        supersetMembers.set(supersetKey, new Set());
       supersetMembers.get(supersetKey)?.add(normalizedExerciseName);
     }
   }
@@ -301,27 +393,41 @@ export function buildRoutineExerciseRows(rows: HevyRow[], exerciseIdMap: Map<str
   }
 
   return exerciseOrder.map((exerciseName, position) => {
-    const exerciseRows = (rowsByExercise.get(exerciseName) ?? []).slice().sort(
-      (left, right) => toInt(left.set_index, 0) - toInt(right.set_index, 0),
-    );
+    const exerciseRows = (rowsByExercise.get(exerciseName) ?? [])
+      .slice()
+      .sort(
+        (left, right) => toInt(left.set_index, 0) - toInt(right.set_index, 0),
+      );
 
     const exerciseId = exerciseIdMap.get(exerciseName);
     if (!exerciseId) {
-      throw new Error(`Missing exercise id for routine exercise: ${exerciseRows[0]?.exercise_title ?? exerciseName}`);
+      throw new Error(
+        `Missing exercise id for routine exercise: ${exerciseRows[0]?.exercise_title ?? exerciseName}`,
+      );
     }
 
     const setTargets = exerciseRows.map((row) => {
       const reps = row.duration_seconds || row.reps || "";
-      return row.weight_lbs.trim() === "" ? { reps } : { reps, weight: row.weight_lbs };
+      return row.weight_lbs.trim() === ""
+        ? { reps }
+        : { reps, weight: row.weight_lbs };
     });
 
     const firstRow = exerciseRows[0];
-    const defaultReps = setTargets[0]?.reps ? toInt(setTargets[0].reps, 0) : null;
-    const defaultWeight = setTargets[0] && "weight" in setTargets[0] && setTargets[0].weight
-      ? toFloat(setTargets[0].weight, 0)
+    const defaultReps = setTargets[0]?.reps
+      ? toInt(setTargets[0].reps, 0)
       : null;
-    const notes = exerciseRows.find((row) => row.exercise_notes.trim())?.exercise_notes.trim() ?? null;
-    const supersetId = firstRow?.superset_id ? supersetIdMap.get(firstRow.superset_id.trim()) ?? null : null;
+    const defaultWeight =
+      setTargets[0] && "weight" in setTargets[0] && setTargets[0].weight
+        ? toFloat(setTargets[0].weight, 0)
+        : null;
+    const notes =
+      exerciseRows
+        .find((row) => row.exercise_notes.trim())
+        ?.exercise_notes.trim() ?? null;
+    const supersetId = firstRow?.superset_id
+      ? (supersetIdMap.get(firstRow.superset_id.trim()) ?? null)
+      : null;
 
     return {
       exercise_id: exerciseId,
