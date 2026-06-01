@@ -142,12 +142,21 @@ export function SupersetLinkButton({
   );
 }
 
+const SUPERSET_COLORS = [
+  { border: "border-warning",  badge: "bg-warning text-white" },
+  { border: "border-blue-500", badge: "bg-blue-500 text-white" },
+  { border: "border-green-500",badge: "bg-green-500 text-white" },
+  { border: "border-violet-500",badge: "bg-violet-500 text-white" },
+  { border: "border-rose-500", badge: "bg-rose-500 text-white" },
+] as const;
+
 /** Colored left-border wrapper for superset groups */
-export function SupersetGroup({ children }: { children: React.ReactNode }) {
+export function SupersetGroup({ children, colorIndex = 0 }: { children: React.ReactNode; colorIndex?: number }) {
+  const color = SUPERSET_COLORS[colorIndex % SUPERSET_COLORS.length];
   return (
-    <div className="relative pl-3 border-l-2 border-warning space-y-2">
+    <div className={`relative pl-3 border-l-2 ${color.border} space-y-2`}>
       <div className="flex items-center gap-1.5 mb-1">
-        <Badge className="text-xs bg-warning text-white">Superset</Badge>
+        <Badge className={`text-xs ${color.badge}`}>Superset</Badge>
       </div>
       {children}
     </div>

@@ -16,7 +16,7 @@ import type { ActiveExercise, ActiveSet } from "@/store/workout-store";
 
 type ExerciseGroup =
   | { type: "single"; ex: ActiveExercise }
-  | { type: "superset"; supersetId: string; exercises: ActiveExercise[] };
+  | { type: "superset"; supersetId: string; exercises: ActiveExercise[]; colorIndex: number };
 
 interface ActiveWorkoutExerciseGroupsProps {
   exercises: ActiveExercise[];
@@ -37,6 +37,7 @@ interface ActiveWorkoutExerciseGroupsProps {
 function buildGroups(exercises: ActiveExercise[]): ExerciseGroup[] {
   const groups: ExerciseGroup[] = [];
   const seenSupersets = new Set<string>();
+  let supersetCount = 0;
 
   for (const exercise of exercises) {
     if (!exercise.supersetId) {
@@ -54,7 +55,7 @@ function buildGroups(exercises: ActiveExercise[]): ExerciseGroup[] {
     if (members.length <= 1) {
       groups.push({ type: "single", ex: exercise });
     } else {
-      groups.push({ type: "superset", supersetId: exercise.supersetId, exercises: members });
+      groups.push({ type: "superset", supersetId: exercise.supersetId, exercises: members, colorIndex: supersetCount++ });
     }
   }
 
@@ -127,7 +128,7 @@ export function ActiveWorkoutExerciseGroups({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <SupersetGroup>
+                  <SupersetGroup colorIndex={group.colorIndex}>
                     {group.exercises.map((exercise) => (
                       <ActiveWorkoutExerciseCard
                         key={exercise.exerciseId}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -64,6 +64,10 @@ export function ActiveWorkoutScreen() {
   const [userId, setUserId] = useState("");
   const [now, setNow] = useState<number | null>(null);
   const [invalidSetIds, setInvalidSetIds] = useState<Set<string>>(new Set());
+  const [workoutPaused, setWorkoutPaused] = useState(false);
+  const [totalPausedMs, setTotalPausedMs] = useState(0);
+  const pausedAtRef = useRef<number | null>(null);
+  const restTimerPausedByWorkout = useRef(false);
 
   useEffect(() => {
     async function loadExercises() {
@@ -84,11 +88,12 @@ export function ActiveWorkoutScreen() {
 
   const remainingSeconds = useMemo(() => getRemainingSeconds(restTimer, now), [now, restTimer]);
 
+  const needsTick = !workoutPaused || (restTimer.active && !restTimer.paused);
   useEffect(() => {
-    if (!restTimer.active || restTimer.paused) return undefined;
+    if (!needsTick) return undefined;
     const interval = window.setInterval(() => setNow(nowMs()), 1000);
     return () => window.clearInterval(interval);
-  }, [restTimer.active, restTimer.paused, restTimer.endsAt]);
+  }, [needsTick]);
 
   useEffect(() => {
     if (!restTimer.active || restTimer.paused || remainingSeconds > 0) return;
@@ -184,6 +189,27 @@ export function ActiveWorkoutScreen() {
     if (unit !== defaultWeightUnit) convertWeightUnit(unit);
   }
 
+  function handlePauseToggle() {
+    if (!workoutPaused) {
+      pausedAtRef.current = Date.now();
+      setWorkoutPaused(true);
+      if (restTimer.active && !restTimer.paused) {
+        restTimerPausedByWorkout.current = true;
+        pauseRestTimer();
+      }
+    } else {
+      if (pausedAtRef.current !== null) {
+        setTotalPausedMs((prev) => prev + (Date.now() - pausedAtRef.current!));
+        pausedAtRef.current = null;
+      }
+      setWorkoutPaused(false);
+      if (restTimerPausedByWorkout.current && restTimer.active && restTimer.paused) {
+        restTimerPausedByWorkout.current = false;
+        pauseRestTimer();
+      }
+    }
+  }
+
   async function handleFinish() {
     const currentWorkout = activeWorkout;
     if (!currentWorkout?.sessionId) return;
@@ -224,26 +250,31 @@ export function ActiveWorkoutScreen() {
         finishing={finishing}
         onConfirm={handleFinish}
       />
-      <div className="space-y-3 pb-4">
-        <ActiveWorkoutHeader
-          name={activeWorkout.name}
-          startedAt={activeWorkout.startedAt}
-          now={now}
-          finishing={finishing}
-          completedSets={completedSets}
-          totalSets={totalSets}
-          progress={progress}
-          onDiscard={handleDiscard}
-          onFinishClick={() => setFinishConfirmOpen(true)}
-        />
-        {restTimer.active && (
-          <ActiveWorkoutRestTimer
-            remainingSeconds={remainingSeconds}
-            paused={restTimer.paused}
-            onTogglePause={pauseRestTimer}
-            onStop={stopRestTimer}
+      <div className="pb-4">
+        <div className="sticky top-0 z-10 bg-background -mx-4 px-4 pt-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 mb-3 space-y-3">
+          <ActiveWorkoutHeader
+            name={activeWorkout.name}
+            startedAt={activeWorkout.startedAt}
+            now={now}
+            totalPausedMs={totalPausedMs}
+            paused={workoutPaused}
+            finishing={finishing}
+            completedSets={completedSets}
+            totalSets={totalSets}
+            progress={progress}
+            onDiscard={handleDiscard}
+            onFinishClick={() => setFinishConfirmOpen(true)}
+            onPauseToggle={handlePauseToggle}
           />
-        )}
+          {restTimer.active && (
+            <ActiveWorkoutRestTimer
+              remainingSeconds={remainingSeconds}
+              paused={restTimer.paused}
+              onTogglePause={pauseRestTimer}
+              onStop={stopRestTimer}
+            />
+          )}
+        </div>
         <ActiveWorkoutExerciseGroups
           exercises={activeWorkout.exercises}
           invalidSetIds={invalidSetIds}
