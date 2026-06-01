@@ -19,6 +19,7 @@ import {
   type ActiveSet,
   type RestTimerState,
 } from "@/store/workout-store";
+import { playRestChime } from "@/lib/audio";
 import type { Exercise, WeightUnit } from "@/types/database";
 
 function nowMs() {
@@ -98,6 +99,7 @@ export function ActiveWorkoutScreen() {
   useEffect(() => {
     if (!restTimer.active || restTimer.paused || remainingSeconds > 0) return;
     stopRestTimer();
+    playRestChime();
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       navigator.vibrate([200, 100, 200]);
     }
