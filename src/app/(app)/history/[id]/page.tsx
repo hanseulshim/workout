@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { Calendar, ChevronLeft, Clock } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { differenceInMinutes, format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WorkoutSession } from "@/types/database";
+import { WorkoutDurationEditor } from "./workout-duration-editor";
 export const metadata = { title: "Workout Detail | Workout" };
 
 export default async function WorkoutDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -71,17 +73,17 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
         <h1 className="truncate text-xl font-bold">{session.name}</h1>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Badge variant="secondary" className="flex items-center gap-1">
           <Calendar className="h-3 w-3" />
           {format(new Date(session.started_at), "MMM d, yyyy")}
         </Badge>
-        {duration !== null && (
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {duration} min
-          </Badge>
-        )}
+        <WorkoutDurationEditor
+          sessionId={session.id}
+          startedAt={session.started_at}
+          finishedAt={session.finished_at ?? null}
+          initialDurationMin={duration}
+        />
         {totalVolume > 0 && <Badge variant="secondary">{totalVolume.toLocaleString()} {volumeUnit} total volume</Badge>}
       </div>
 
