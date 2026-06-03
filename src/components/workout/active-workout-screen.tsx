@@ -253,7 +253,7 @@ export function ActiveWorkoutScreen() {
         onConfirm={handleFinish}
       />
       <div className="pb-4">
-        <div className="sticky top-0 z-10 bg-background -mx-4 px-4 pt-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 mb-3 space-y-3">
+        <div className="sticky top-0 z-10 bg-background -mx-4 px-4 -mt-4 pt-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 mb-3 space-y-3">
           <ActiveWorkoutHeader
             name={activeWorkout.name}
             startedAt={activeWorkout.startedAt}

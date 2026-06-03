@@ -32,7 +32,7 @@ export async function saveRoutine({
       set_targets: ex.sets,
       superset_id: ex.supersetId,
       notes: ex.notes || null,
-      rest_seconds: ex.restSeconds > 0 ? ex.restSeconds : null,
+      rest_seconds: ex.restSeconds,
     }));
 
   if (routine) {

@@ -85,7 +85,7 @@ export async function saveActiveWorkout(activeWorkout: ActiveWorkout, finishedAt
             set_targets: setTargets,
             default_sets: setTargets.length,
             notes: exercise.notes || null,
-            rest_seconds: exercise.restSeconds > 0 ? exercise.restSeconds : null,
+            rest_seconds: exercise.restSeconds,
           })
           .eq("routine_id", activeWorkout.routineId!)
           .eq("exercise_id", exercise.exerciseId);
