@@ -149,14 +149,13 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
         </p>
       )}
 
-      {/* Exercise list — compact, collapsed by default */}
+      {/* Exercise list */}
       {exercises.length > 0 && (
-        <details className="group">
-          <summary className="flex cursor-pointer items-center justify-between rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
-            <span>Exercises ({exercises.length})</span>
-            <svg className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </summary>
-          <div className="mt-3 space-y-3">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Exercises ({exercises.length})
+          </h2>
+          <div className="space-y-3">
             {exercises.map((re) => {
               const ex = re.exercises!;
               const isDuration = ex.log_type === "duration";
@@ -215,7 +214,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
               );
             })}
           </div>
-        </details>
+        </div>
       )}
     </div>
   );

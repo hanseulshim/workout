@@ -70,23 +70,26 @@ export async function saveActiveWorkout(activeWorkout: ActiveWorkout, finishedAt
     const routineResults = await Promise.allSettled([
       ...activeWorkout.exercises.map(async (exercise) => {
         const completedExerciseSets = exercise.sets.filter((setItem) => setItem.completed);
-        if (completedExerciseSets.length === 0) return;
 
-        const setTargets = exercise.sets.map((setItem) => ({
-          reps: exercise.logType === "duration"
-            ? setItem.durationSeconds ?? ""
-            : setItem.reps ?? "",
-          weight: setItem.weight ?? "",
-        }));
+        const updateData: Record<string, unknown> = {
+          notes: exercise.notes || null,
+          rest_seconds: exercise.restSeconds,
+        };
+
+        if (completedExerciseSets.length > 0) {
+          const setTargets = exercise.sets.map((setItem) => ({
+            reps: exercise.logType === "duration"
+              ? setItem.durationSeconds ?? ""
+              : setItem.reps ?? "",
+            weight: setItem.weight ?? "",
+          }));
+          updateData.set_targets = setTargets;
+          updateData.default_sets = setTargets.length;
+        }
 
         const { error } = await supabase
           .from("routine_exercises")
-          .update({
-            set_targets: setTargets,
-            default_sets: setTargets.length,
-            notes: exercise.notes || null,
-            rest_seconds: exercise.restSeconds,
-          })
+          .update(updateData)
           .eq("routine_id", activeWorkout.routineId!)
           .eq("exercise_id", exercise.exerciseId);
 

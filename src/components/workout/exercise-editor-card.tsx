@@ -6,7 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, GripVertical, Link2, Link2Off, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, GripVertical, Link2, Link2Off, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -38,13 +38,15 @@ export function ExerciseEditorCard({
   const [collapsed, setCollapsed] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
+  const allDone = completedCount !== undefined && setsCount > 0 && completedCount === setsCount;
+
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && "opacity-50 z-50")}
     >
-      <Card>
+      <Card className={cn(allDone && "border-green-500/60 bg-green-500/5 dark:bg-green-500/10")}>
         <CardHeader className="pb-2">
           <div className="flex items-center gap-1">
             {/* Drag handle */}
@@ -84,10 +86,17 @@ export function ExerciseEditorCard({
                 </div>
               )}
               <CardTitle className="text-base truncate">{name}</CardTitle>
-              {completedCount !== undefined && completedCount > 0 && (
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  {completedCount}/{setsCount}
-                </Badge>
+              {completedCount !== undefined && setsCount > 0 && (
+                allDone ? (
+                  <Badge className="text-xs shrink-0 bg-green-500 text-white border-0">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Done
+                  </Badge>
+                ) : completedCount > 0 ? (
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    {completedCount}/{setsCount}
+                  </Badge>
+                ) : null
               )}
             </button>
 

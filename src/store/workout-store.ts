@@ -112,7 +112,7 @@ function isSetValid(logType: LogType, setItem: ActiveSet) {
 
   switch (logType) {
     case "weight_reps":
-      return weight !== null && weight > 0 && reps !== null;
+    return weight !== null && weight >= 0 && reps !== null;
     case "bodyweight_reps":
       return reps !== null;
     case "weighted_bodyweight":

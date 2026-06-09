@@ -19,7 +19,7 @@ import {
   type ActiveSet,
   type RestTimerState,
 } from "@/store/workout-store";
-import { playRestChime } from "@/lib/audio";
+import { playRestChime, unlockAudio } from "@/lib/audio";
 import type { Exercise, WeightUnit } from "@/types/database";
 
 function nowMs() {
@@ -69,6 +69,28 @@ export function ActiveWorkoutScreen() {
   const [totalPausedMs, setTotalPausedMs] = useState(0);
   const pausedAtRef = useRef<number | null>(null);
   const restTimerPausedByWorkout = useRef(false);
+
+  // Unlock the Web Audio API on first user gesture so the rest-end chime
+  // works on iOS Safari / PWA (AudioContext requires a user gesture to start).
+  useEffect(() => {
+    function handleFirstInteraction() {
+      unlockAudio();
+      document.removeEventListener("pointerdown", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("mousedown", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    }
+    document.addEventListener("pointerdown", handleFirstInteraction, { passive: true });
+    document.addEventListener("touchstart", handleFirstInteraction, { passive: true });
+    document.addEventListener("mousedown", handleFirstInteraction, { passive: true });
+    document.addEventListener("keydown", handleFirstInteraction);
+    return () => {
+      document.removeEventListener("pointerdown", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("mousedown", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    };
+  }, []);
 
   useEffect(() => {
     async function loadExercises() {
