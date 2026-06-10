@@ -290,7 +290,7 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
               <ul className="text-xs text-yellow-600 dark:text-yellow-500 list-disc pl-5">
                 {unmatched.map((u, i) => <li key={i}>{u.name}</li>)}
               </ul>
-              <p className="text-xs text-muted-foreground">They'll be skipped. You can add them manually after creating.</p>
+              <p className="text-xs text-muted-foreground">They&apos;ll be skipped. You can add them manually after creating.</p>
             </div>
           )}
 

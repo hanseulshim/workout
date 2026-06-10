@@ -9,6 +9,8 @@ import { format } from "date-fns";
 import { RoutineVolumeChart } from "@/components/routines/routine-volume-chart";
 import { RoutineDeleteButton } from "@/components/routines/routine-delete-button";
 import { SessionHistoryList } from "@/components/routines/session-history-list";
+import { RoutineExportButton } from "@/components/routines/routine-export-button";
+import type { RoutineExerciseRowLike } from "@/lib/routines/export-routine";
 export const metadata = { title: "Routine | Workout" };
 
 
@@ -21,7 +23,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   const [{ data: routine, error: routineError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase
       .from("routines")
-      .select(`*, routine_exercises(position, default_sets, default_reps, set_targets, exercises(id, name, muscle_group, log_type))`)
+      .select(`id, name, days, routine_exercises(id, exercise_id, position, default_sets, default_reps, set_targets, superset_id, notes, rest_seconds, exercises(id, name, muscle_group, log_type))`)
       .eq("id", id)
       .eq("user_id", user.id)
       .single(),
@@ -39,13 +41,33 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
 
   if (!routine) notFound();
 
-  const exercises = (routine.routine_exercises as Array<{
+  const normalizedExercises = (routine.routine_exercises as Array<{
+    exercise_id: string;
     position: number;
     default_sets: number;
     default_reps: number | null;
-    set_targets: Array<{ reps: string }> | null;
-    exercises: { id: string; name: string; muscle_group: string; log_type: string } | null;
+    set_targets: Array<{ reps: string; weight?: string }> | null;
+    superset_id: string | null;
+    notes: string | null;
+    rest_seconds: number | null;
+    exercises?: { id: string; name: string; muscle_group: string; log_type: string } | { id: string; name: string; muscle_group: string; log_type: string }[] 
   }>)
+    .map((exercise) => ({
+      ...exercise,
+      exercises: Array.isArray(exercise.exercises) ? exercise.exercises[0] ?? null : exercise.exercises,
+    })) as Array<{
+      exercise_id: string;
+      position: number;
+      default_sets: number;
+      default_reps: number | null;
+      set_targets: Array<{ reps: string; weight?: string }> | null;
+      superset_id: string | null;
+      notes: string | null;
+      rest_seconds: number | null;
+      exercises: { id: string; name: string; muscle_group: string; log_type: string } | null
+    }>;
+
+  const exercises = normalizedExercises
     .sort((a, b) => a.position - b.position)
     .filter((re) => re.exercises);
 
@@ -98,6 +120,11 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <RoutineExportButton
+            routineName={routine.name}
+            days={routine.days}
+            exercises={normalizedExercises as RoutineExerciseRowLike[]}
+          />
           <RoutineDeleteButton routineId={id} />
           <Link
             href={`/routines/${id}/edit`}
@@ -167,7 +194,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
               const numSets = targets.length || re.default_sets;
 
               const rows: { weight?: string; reps: string }[] = targets.length > 0
-                ? targets.map((t) => ({ weight: (t as { reps: string; weight?: string }).weight, reps: t.reps }))
+                ? targets.map((t: { reps: string; weight?: string }) => ({ weight: t.weight, reps: t.reps }))
                 : Array.from({ length: numSets }, () => ({
                     weight: undefined,
                     reps: re.default_reps != null ? String(re.default_reps) : "",
