@@ -119,8 +119,9 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
             <p className="text-sm text-muted-foreground">{exercises.length} exercises</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <RoutineExportButton
+            routineId={id}
             routineName={routine.name}
             days={routine.days}
             exercises={normalizedExercises as RoutineExerciseRowLike[]}
@@ -128,17 +129,17 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           <RoutineDeleteButton routineId={id} />
           <Link
             href={`/routines/${id}/edit`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            className={cn(buttonVariants({ variant: "outline", size: "icon" }), "h-8 w-8 sm:w-auto sm:px-3")}
           >
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            Edit
+            <Pencil className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline ml-1.5">Edit</span>
           </Link>
           <Link
             href={`/workout/start?routine=${id}`}
-            className={cn(buttonVariants({ size: "sm" }))}
+            className={cn(buttonVariants({ size: "icon" }), "h-8 w-8 sm:w-auto sm:px-3")}
           >
-            <Play className="h-3.5 w-3.5 mr-1.5" />
-            Start
+            <Play className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline ml-1.5">Start</span>
           </Link>
         </div>
       </div>

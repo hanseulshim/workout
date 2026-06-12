@@ -1,5 +1,17 @@
 let sharedCtx: AudioContext | null = null;
 
+function getOrCreateContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (!sharedCtx || sharedCtx.state === "closed") {
+      sharedCtx = new AudioContext();
+    }
+    return sharedCtx;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Call from any user gesture (tap, click) to create and unlock the AudioContext.
  * iOS Safari requires AudioContext to be created/resumed within a user gesture.
@@ -8,11 +20,10 @@ let sharedCtx: AudioContext | null = null;
 export function unlockAudio(): void {
   if (typeof window === "undefined") return;
   try {
-    if (!sharedCtx) {
-      sharedCtx = new AudioContext();
-    }
-    if (sharedCtx.state === "suspended") {
-      void sharedCtx.resume();
+    const ctx = getOrCreateContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      void ctx.resume();
     }
   } catch {
     // AudioContext unavailable — fail silently
@@ -46,7 +57,7 @@ function scheduleChime(ctx: AudioContext): void {
 export function playRestChime(): void {
   if (typeof window === "undefined") return;
   try {
-    const ctx = sharedCtx;
+    const ctx = getOrCreateContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
       void ctx.resume().then(() => scheduleChime(ctx));

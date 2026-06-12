@@ -56,6 +56,10 @@ export function ActiveWorkoutScreen() {
     convertWeightUnit,
     newPr,
     clearPr,
+    workoutPaused,
+    totalPausedMs,
+    pauseWorkout,
+    resumeWorkout,
   } = useWorkoutStore();
 
   const [finishing, setFinishing] = useState(false);
@@ -65,9 +69,6 @@ export function ActiveWorkoutScreen() {
   const [userId, setUserId] = useState("");
   const [now, setNow] = useState<number | null>(null);
   const [invalidSetIds, setInvalidSetIds] = useState<Set<string>>(new Set());
-  const [workoutPaused, setWorkoutPaused] = useState(false);
-  const [totalPausedMs, setTotalPausedMs] = useState(0);
-  const pausedAtRef = useRef<number | null>(null);
   const restTimerPausedByWorkout = useRef(false);
 
   // Unlock the Web Audio API on first user gesture so the rest-end chime
@@ -84,11 +85,21 @@ export function ActiveWorkoutScreen() {
     document.addEventListener("touchstart", handleFirstInteraction, { passive: true });
     document.addEventListener("mousedown", handleFirstInteraction, { passive: true });
     document.addEventListener("keydown", handleFirstInteraction);
+
+    // Re-unlock when app returns to foreground (iOS suspends AudioContext in background)
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        unlockAudio();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       document.removeEventListener("pointerdown", handleFirstInteraction);
       document.removeEventListener("touchstart", handleFirstInteraction);
       document.removeEventListener("mousedown", handleFirstInteraction);
       document.removeEventListener("keydown", handleFirstInteraction);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -215,18 +226,13 @@ export function ActiveWorkoutScreen() {
 
   function handlePauseToggle() {
     if (!workoutPaused) {
-      pausedAtRef.current = Date.now();
-      setWorkoutPaused(true);
+      pauseWorkout();
       if (restTimer.active && !restTimer.paused) {
         restTimerPausedByWorkout.current = true;
         pauseRestTimer();
       }
     } else {
-      if (pausedAtRef.current !== null) {
-        setTotalPausedMs((prev) => prev + (Date.now() - pausedAtRef.current!));
-        pausedAtRef.current = null;
-      }
-      setWorkoutPaused(false);
+      resumeWorkout();
       if (restTimerPausedByWorkout.current && restTimer.active && restTimer.paused) {
         restTimerPausedByWorkout.current = false;
         pauseRestTimer();
@@ -275,7 +281,7 @@ export function ActiveWorkoutScreen() {
         onConfirm={handleFinish}
       />
       <div className="pb-4">
-        <div className="sticky top-0 z-20 bg-background -mx-4 px-4 -mt-4 pt-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 mb-3 space-y-3 md:top-auto">
+        <div className="sticky top-14 md:top-0 z-20 bg-background -mx-4 px-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 shadow-sm space-y-3">
           <ActiveWorkoutHeader
             name={activeWorkout.name}
             startedAt={activeWorkout.startedAt}
@@ -291,38 +297,38 @@ export function ActiveWorkoutScreen() {
             onPauseToggle={handlePauseToggle}
           />
           {restTimer.active && (
-            <div className="pt-2">
-              <ActiveWorkoutRestTimer
-                remainingSeconds={remainingSeconds}
-                paused={restTimer.paused}
-                onTogglePause={pauseRestTimer}
-                onStop={stopRestTimer}
-              />
-            </div>
+            <ActiveWorkoutRestTimer
+              remainingSeconds={remainingSeconds}
+              paused={restTimer.paused}
+              onTogglePause={pauseRestTimer}
+              onStop={stopRestTimer}
+            />
           )}
         </div>
-        <ActiveWorkoutExerciseGroups
-          exercises={activeWorkout.exercises}
-          invalidSetIds={invalidSetIds}
-          onAddSet={addSet}
-          onRemoveSet={removeSet}
-          onUpdateSet={handleSetUpdate}
-          onToggleComplete={handleToggleSetComplete}
-          onRemoveExercise={removeExercise}
-          onSetRestTime={setExerciseRestTime}
-          onStartRest={startRestTimer}
-          onSetNotes={setExerciseNotes}
-          onLinkSuperset={linkSuperset}
-          onUnlinkSuperset={unlinkSuperset}
-          onReorderExercises={reorderExercises}
-        />
-        <AddExerciseSheet
-          open={addExerciseOpen}
-          onOpenChange={setAddExerciseOpen}
-          exercises={exercises}
-          userId={userId}
-          onSelect={handleAddExercise}
-        />
+        <div className="mt-3">
+          <ActiveWorkoutExerciseGroups
+            exercises={activeWorkout.exercises}
+            invalidSetIds={invalidSetIds}
+            onAddSet={addSet}
+            onRemoveSet={removeSet}
+            onUpdateSet={handleSetUpdate}
+            onToggleComplete={handleToggleSetComplete}
+            onRemoveExercise={removeExercise}
+            onSetRestTime={setExerciseRestTime}
+            onStartRest={startRestTimer}
+            onSetNotes={setExerciseNotes}
+            onLinkSuperset={linkSuperset}
+            onUnlinkSuperset={unlinkSuperset}
+            onReorderExercises={reorderExercises}
+          />
+          <AddExerciseSheet
+            open={addExerciseOpen}
+            onOpenChange={setAddExerciseOpen}
+            exercises={exercises}
+            userId={userId}
+            onSelect={handleAddExercise}
+          />
+        </div>
       </div>
     </>
   );

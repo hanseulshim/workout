@@ -7,18 +7,19 @@ import { exportRoutineToJSON, downloadJSON, type RoutineExerciseRowLike } from "
 import { useState } from "react";
 
 interface RoutineExportButtonProps {
+  routineId?: string;
   routineName: string;
   days: number[];
   exercises: RoutineExerciseRowLike[];
 }
 
-export function RoutineExportButton({ routineName, days, exercises }: RoutineExportButtonProps) {
+export function RoutineExportButton({ routineId, routineName, days, exercises }: RoutineExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   async function handleExport() {
     try {
       setIsExporting(true);
-      const json = exportRoutineToJSON(routineName, days, exercises);
+      const json = exportRoutineToJSON(routineName, days, exercises, routineId);
       const filename = `${routineName.toLowerCase().replace(/\s+/g, "-")}-routine.json`;
       downloadJSON(json, filename);
       toast.success("Routine exported successfully");
@@ -33,16 +34,18 @@ export function RoutineExportButton({ routineName, days, exercises }: RoutineExp
   return (
     <Button
       variant="outline"
-      size="sm"
+      size="icon"
+      className="h-8 w-8 sm:w-auto sm:px-3"
       onClick={handleExport}
       disabled={isExporting}
+      aria-label="Export routine"
     >
       {isExporting ? (
-        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
-        <Download className="h-3.5 w-3.5 mr-1.5" />
+        <Download className="h-3.5 w-3.5" />
       )}
-      {isExporting ? "Exporting..." : "Export"}
+      <span className="hidden sm:inline ml-1.5">{isExporting ? "Exporting..." : "Export"}</span>
     </Button>
   );
 }

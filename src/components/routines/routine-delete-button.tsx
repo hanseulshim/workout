@@ -39,9 +39,9 @@ export function RoutineDeleteButton({ routineId }: { routineId: string }) {
     <AlertDialog>
       <AlertDialogTrigger
         render={
-          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Delete
+          <Button variant="ghost" size="icon" className="h-8 w-8 sm:w-auto sm:px-3 text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete routine">
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline ml-1.5">Delete</span>
           </Button>
         }
       />

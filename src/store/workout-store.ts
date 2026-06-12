@@ -48,9 +48,14 @@ interface WorkoutStore {
   defaultWeightUnit: WeightUnit;
   restTimer: RestTimerState;
   newPr: { exerciseName: string; value: string } | null;
+  workoutPaused: boolean;
+  totalPausedMs: number;
+  pausedAt: number | null;
 
   startWorkout: (workout: ActiveWorkout) => void;
   endWorkout: () => void;
+  pauseWorkout: () => void;
+  resumeWorkout: () => void;
   addExercise: (exercise: ActiveExercise) => void;
   removeExercise: (exerciseId: string) => void;
   reorderExercises: (orderedIds: string[]) => void;
@@ -139,6 +144,9 @@ export const useWorkoutStore = create<WorkoutStore>()(
         endsAt: null,
       },
       newPr: null,
+      workoutPaused: false,
+      totalPausedMs: 0,
+      pausedAt: null,
 
       startWorkout: (workout) => set({ activeWorkout: workout }),
       endWorkout: () =>
@@ -152,6 +160,29 @@ export const useWorkoutStore = create<WorkoutStore>()(
             endsAt: null,
           },
           newPr: null,
+          workoutPaused: false,
+          totalPausedMs: 0,
+          pausedAt: null,
+        }),
+
+      pauseWorkout: () =>
+        set((state) => {
+          if (state.workoutPaused) return {};
+          return {
+            workoutPaused: true,
+            pausedAt: Date.now(),
+          };
+        }),
+
+      resumeWorkout: () =>
+        set((state) => {
+          if (!state.workoutPaused) return {};
+          const pausedDuration = state.pausedAt != null ? Date.now() - state.pausedAt : 0;
+          return {
+            workoutPaused: false,
+            totalPausedMs: state.totalPausedMs + pausedDuration,
+            pausedAt: null,
+          };
         }),
 
       addExercise: (exercise) =>
@@ -474,8 +505,16 @@ export const useWorkoutStore = create<WorkoutStore>()(
     }),
     {
       name: "active-workout",
-      version: 1,
-      migrate: (state) => state,
+      version: 2,
+      migrate: (state) => {
+        const s = state as Record<string, unknown>;
+        return {
+          ...(s ?? {}),
+          workoutPaused: false,
+          totalPausedMs: (s?.totalPausedMs as number | undefined) ?? 0,
+          pausedAt: null,
+        };
+      },
     }
   )
 );

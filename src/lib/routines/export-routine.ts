@@ -7,6 +7,7 @@ interface ExportedSet {
 }
 
 interface ExportedExercise {
+  exercise_id?: string;
   name: string;
   notes?: string;
   rest_seconds?: number;
@@ -14,6 +15,7 @@ interface ExportedExercise {
 }
 
 interface ExportedRoutine {
+  routine_id?: string;
   name: string;
   days?: string[];
   exercises: ExportedExercise[];
@@ -22,6 +24,7 @@ interface ExportedRoutine {
 const DAY_LABELS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 export type RoutineExerciseRowLike = Partial<RoutineExerciseRow> & {
+  exercise_id?: string;
   position: number;
   default_sets: number;
   default_reps: number | null;
@@ -34,7 +37,8 @@ export type RoutineExerciseRowLike = Partial<RoutineExerciseRow> & {
 export function exportRoutineToJSON(
   routineName: string,
   days: number[],
-  exercises: RoutineExerciseRowLike[]
+  exercises: RoutineExerciseRowLike[],
+  routineId?: string
 ): ExportedRoutine {
   const dayStrings = days
     .filter((d) => d >= 0 && d < 7)
@@ -78,6 +82,7 @@ export function exportRoutineToJSON(
       }
 
       const exported: ExportedExercise = {
+        ...(ex.exercise_id && { exercise_id: ex.exercise_id }),
         name: ex.exercises!.name,
         sets,
       };
@@ -94,6 +99,7 @@ export function exportRoutineToJSON(
     });
 
   return {
+    ...(routineId && { routine_id: routineId }),
     name: routineName,
     ...(dayStrings.length > 0 && { days: dayStrings }),
     exercises: exportedExercises,
