@@ -71,34 +71,32 @@ export function ActiveWorkoutScreen() {
   const [invalidSetIds, setInvalidSetIds] = useState<Set<string>>(new Set());
   const restTimerPausedByWorkout = useRef(false);
 
-  // Unlock the Web Audio API on first user gesture so the rest-end chime
-  // works on iOS Safari / PWA (AudioContext requires a user gesture to start).
+  // Unlock the Web Audio API on every user gesture so iOS Safari/PWA keeps
+  // the AudioContext running. iOS can close the context when backgrounded, so
+  // listeners stay active (not removed after first use) and we also try to
+  // re-unlock when the app returns to the foreground.
   useEffect(() => {
-    function handleFirstInteraction() {
+    function handleGesture() {
       unlockAudio();
-      document.removeEventListener("pointerdown", handleFirstInteraction);
-      document.removeEventListener("touchstart", handleFirstInteraction);
-      document.removeEventListener("mousedown", handleFirstInteraction);
-      document.removeEventListener("keydown", handleFirstInteraction);
     }
-    document.addEventListener("pointerdown", handleFirstInteraction, { passive: true });
-    document.addEventListener("touchstart", handleFirstInteraction, { passive: true });
-    document.addEventListener("mousedown", handleFirstInteraction, { passive: true });
-    document.addEventListener("keydown", handleFirstInteraction);
+    document.addEventListener("pointerdown", handleGesture, { passive: true });
+    document.addEventListener("touchstart", handleGesture, { passive: true });
+    document.addEventListener("mousedown", handleGesture, { passive: true });
+    document.addEventListener("keydown", handleGesture);
 
-    // Re-unlock when app returns to foreground (iOS suspends AudioContext in background)
     function handleVisibilityChange() {
       if (!document.hidden) {
         unlockAudio();
+        setNow(Date.now()); // snap stale timer to current time on foreground return
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      document.removeEventListener("pointerdown", handleFirstInteraction);
-      document.removeEventListener("touchstart", handleFirstInteraction);
-      document.removeEventListener("mousedown", handleFirstInteraction);
-      document.removeEventListener("keydown", handleFirstInteraction);
+      document.removeEventListener("pointerdown", handleGesture);
+      document.removeEventListener("touchstart", handleGesture);
+      document.removeEventListener("mousedown", handleGesture);
+      document.removeEventListener("keydown", handleGesture);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
@@ -281,7 +279,7 @@ export function ActiveWorkoutScreen() {
         onConfirm={handleFinish}
       />
       <div className="pb-4">
-        <div className="sticky top-14 md:top-0 z-20 bg-background -mx-4 px-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 shadow-sm space-y-3">
+        <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 shadow-sm space-y-3">
           <ActiveWorkoutHeader
             name={activeWorkout.name}
             startedAt={activeWorkout.startedAt}

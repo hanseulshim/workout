@@ -508,11 +508,13 @@ export const useWorkoutStore = create<WorkoutStore>()(
       version: 2,
       migrate: (state) => {
         const s = state as Record<string, unknown>;
+        const workoutPaused = (s?.workoutPaused as boolean | undefined) ?? false;
         return {
           ...(s ?? {}),
-          workoutPaused: false,
+          workoutPaused,
           totalPausedMs: (s?.totalPausedMs as number | undefined) ?? 0,
-          pausedAt: null,
+          // Preserve pausedAt only if the workout was actually paused
+          pausedAt: workoutPaused ? ((s?.pausedAt as number | null | undefined) ?? null) : null,
         };
       },
     }

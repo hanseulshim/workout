@@ -110,12 +110,12 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Link href="/routines" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 shrink-0")}>
             <ChevronLeft className="h-4 w-4" />
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{routine.name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold truncate">{routine.name}</h1>
             <p className="text-sm text-muted-foreground">{exercises.length} exercises</p>
           </div>
         </div>

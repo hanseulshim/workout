@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { saveRoutine } from "@/components/routines/routine-builder-save";
-import type { SelectedExercise } from "@/components/routines/routine-builder-types";
+import { createClient } from "@/lib/supabase/client";
+import type { SelectedExercise, ExistingRoutine } from "@/components/routines/routine-builder-types";
 
 interface ParsedSet {
   reps?: string;
@@ -25,6 +26,7 @@ interface ParsedExercise {
 }
 
 interface ParsedRoutine {
+  routine_id?: string;
   name: string;
   days?: number[];
   exercises: ParsedExercise[];
@@ -114,6 +116,7 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
   const [json, setJson] = useState("");
   const [resolved, setResolved] = useState<ResolvedExercise[] | null>(null);
   const [parsed, setParsed] = useState<ParsedRoutine | null>(null);
+  const [existingRoutine, setExistingRoutine] = useState<ExistingRoutine | null>(null);
   const [resolving, setResolving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -142,6 +145,20 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
       const merged = results.map((r, i) => ({ ...r, ...data.exercises[i] }));
       setParsed(data);
       setResolved(merged);
+
+      // If a routine_id is present, check if this routine already belongs to the user
+      if (data.routine_id) {
+        const supabase = createClient();
+        const { data: existing } = await supabase
+          .from("routines")
+          .select("id, name, days, routine_exercises(exercise_id, position, default_sets, default_reps, set_targets, superset_id, notes, rest_seconds)")
+          .eq("id", data.routine_id)
+          .eq("user_id", userId)
+          .single();
+        setExistingRoutine(existing as ExistingRoutine | null);
+      } else {
+        setExistingRoutine(null);
+      }
     } catch (e) {
       toast.error("Failed to resolve exercises");
       console.error(e);
@@ -175,8 +192,8 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
         return DAY_MAP[String(d).toLowerCase()] ?? -1;
       }).filter((d) => d >= 0);
 
-      const id = await saveRoutine({ name: parsed.name, days, selected, userId });
-      toast.success(`Routine "${parsed.name}" created!`);
+      const id = await saveRoutine({ name: parsed.name, days, selected, userId, routine: existingRoutine ?? undefined });
+      toast.success(existingRoutine ? `Routine "${parsed.name}" updated!` : `Routine "${parsed.name}" created!`);
       router.push(`/routines/${id}`);
     } catch (e) {
       toast.error("Failed to create routine");
@@ -278,6 +295,11 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
                 </div>
                 <Badge variant="outline">{resolved.length} exercises</Badge>
               </div>
+              {existingRoutine && (
+                <div className="rounded-md border border-blue-400/50 bg-blue-50 dark:bg-blue-950/20 p-3 text-sm text-blue-700 dark:text-blue-400">
+                  Existing routine found — clicking <strong>Update Routine</strong> will replace its exercises and notes.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -319,12 +341,12 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => { setResolved(null); setParsed(null); }}>
+            <Button variant="outline" className="flex-1" onClick={() => { setResolved(null); setParsed(null); setExistingRoutine(null); }}>
               Edit JSON
             </Button>
             <Button className="flex-1" onClick={handleCreate} disabled={saving || resolved.filter((r) => r.matched).length === 0}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {saving ? "Creating…" : "Create Routine"}
+              {saving ? (existingRoutine ? "Updating…" : "Creating…") : (existingRoutine ? "Update Routine" : "Create Routine")}
             </Button>
           </div>
         </div>
