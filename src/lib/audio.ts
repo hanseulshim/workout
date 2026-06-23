@@ -4,11 +4,24 @@ function getOrCreateContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
   try {
     if (!sharedCtx || sharedCtx.state === "closed") {
-      sharedCtx = new AudioContext();
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      sharedCtx = new AudioContextClass();
     }
     return sharedCtx;
   } catch {
     return null;
+  }
+}
+
+function playSilence(ctx: AudioContext): void {
+  try {
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch {
+    // ignore
   }
 }
 
@@ -23,10 +36,33 @@ export function unlockAudio(): void {
     const ctx = getOrCreateContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
-      void ctx.resume();
+      void ctx.resume().then(() => {
+        playSilence(ctx);
+      });
+    } else {
+      playSilence(ctx);
     }
   } catch {
     // AudioContext unavailable — fail silently
+  }
+}
+
+/**
+ * Periodically plays silence to keep the AudioContext in "running" state
+ * and prevent browser auto-suspension during inactive periods.
+ */
+export function keepAudioAlive(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const ctx = getOrCreateContext();
+    if (!ctx) return;
+    if (ctx.state === "running") {
+      playSilence(ctx);
+    } else if (ctx.state === "suspended") {
+      void ctx.resume().catch(() => {});
+    }
+  } catch {
+    // ignore
   }
 }
 
@@ -60,7 +96,10 @@ export function playRestChime(): void {
     const ctx = getOrCreateContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
-      void ctx.resume().then(() => scheduleChime(ctx));
+      void ctx.resume().then(() => scheduleChime(ctx)).catch(() => {
+        // Fallback: try to schedule anyway
+        scheduleChime(ctx);
+      });
       return;
     }
     scheduleChime(ctx);

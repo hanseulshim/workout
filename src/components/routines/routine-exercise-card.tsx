@@ -3,6 +3,7 @@
 import { Trash2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExerciseEditorCard } from "@/components/workout/exercise-editor-card";
+import { WorkoutNotesInput } from "@/components/workout/workout-notes-input";
 import type { SelectedExercise, SetTarget } from "./routine-builder-types";
 import { RoutineExerciseSetTargets } from "./routine-exercise-set-targets";
 
@@ -85,18 +86,11 @@ export function RoutineExerciseCard({
               </button>
             ))}
           </div>
-          <textarea
+          <WorkoutNotesInput
             value={ex.notes}
-            onChange={(e) => onUpdateNotes(ex.exerciseId, e.target.value)}
+            onChange={(val) => onUpdateNotes(ex.exerciseId, val)}
             placeholder="Notes (e.g. cues, rep range, tempo)"
-            rows={1}
-            className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            style={{ minHeight: "2.25rem" }}
-            onInput={(e) => {
-              const textarea = e.currentTarget;
-              textarea.style.height = "auto";
-              textarea.style.height = `${textarea.scrollHeight}px`;
-            }}
+            className="mt-0"
           />
         </div>
       }

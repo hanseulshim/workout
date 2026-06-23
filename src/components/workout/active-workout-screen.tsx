@@ -15,12 +15,22 @@ import {
 } from "@/components/workout/active-workout-session-actions";
 import { FinishWorkoutDialog } from "@/components/workout/finish-workout-dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   useWorkoutStore,
   type ActiveSet,
   type RestTimerState,
 } from "@/store/workout-store";
-import { playRestChime, unlockAudio } from "@/lib/audio";
-import type { Exercise, WeightUnit } from "@/types/database";
+import { keepAudioAlive, playRestChime, unlockAudio } from "@/lib/audio";
+import type { Exercise } from "@/types/database";
 
 function nowMs() {
   return Date.now();
@@ -53,7 +63,6 @@ export function ActiveWorkoutScreen() {
     setExerciseRestTime,
     setExerciseNotes,
     defaultWeightUnit,
-    convertWeightUnit,
     newPr,
     clearPr,
     workoutPaused,
@@ -65,6 +74,7 @@ export function ActiveWorkoutScreen() {
   const [finishing, setFinishing] = useState(false);
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [userId, setUserId] = useState("");
   const [now, setNow] = useState<number | null>(null);
@@ -123,9 +133,20 @@ export function ActiveWorkoutScreen() {
   const needsTick = !workoutPaused || (restTimer.active && !restTimer.paused);
   useEffect(() => {
     if (!needsTick) return undefined;
-    const interval = window.setInterval(() => setNow(nowMs()), 1000);
+    const interval = window.setInterval(() => {
+      const currentTime = nowMs();
+      setNow(currentTime);
+
+      // Keep audio context alive during active rest timer (every 10 seconds)
+      if (restTimer.active && !restTimer.paused && restTimer.endsAt !== null) {
+        const remaining = Math.max(0, Math.ceil((restTimer.endsAt - currentTime) / 1000));
+        if (remaining > 0 && remaining % 10 === 0) {
+          keepAudioAlive();
+        }
+      }
+    }, 1000);
     return () => window.clearInterval(interval);
-  }, [needsTick]);
+  }, [needsTick, restTimer.active, restTimer.paused, restTimer.endsAt]);
 
   useEffect(() => {
     if (!restTimer.active || restTimer.paused || remainingSeconds > 0) return;
@@ -218,10 +239,6 @@ export function ActiveWorkoutScreen() {
     toast.error("Enter valid set values before marking it complete.");
   }
 
-  function handleWeightUnitToggle(unit: WeightUnit) {
-    if (unit !== defaultWeightUnit) convertWeightUnit(unit);
-  }
-
   function handlePauseToggle() {
     if (!workoutPaused) {
       pauseWorkout();
@@ -278,8 +295,27 @@ export function ActiveWorkoutScreen() {
         finishing={finishing}
         onConfirm={handleFinish}
       />
+      <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard workout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to discard this active workout? This will delete all sets and progress from this session. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDiscard}
+            >
+              Discard Workout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="pb-4">
-        <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pb-3 md:-mx-8 md:px-8 border-b border-border/40 shadow-sm space-y-3">
+        <div className="sticky top-0 z-20 bg-background border-b border-border/40 shadow-sm px-4 py-3 md:px-8 space-y-3">
           <ActiveWorkoutHeader
             name={activeWorkout.name}
             startedAt={activeWorkout.startedAt}
@@ -290,9 +326,10 @@ export function ActiveWorkoutScreen() {
             completedSets={completedSets}
             totalSets={totalSets}
             progress={progress}
-            onDiscard={handleDiscard}
+            onDiscard={() => setDiscardConfirmOpen(true)}
             onFinishClick={() => setFinishConfirmOpen(true)}
             onPauseToggle={handlePauseToggle}
+            onMinimize={() => router.push("/")}
           />
           {restTimer.active && (
             <ActiveWorkoutRestTimer
@@ -303,7 +340,7 @@ export function ActiveWorkoutScreen() {
             />
           )}
         </div>
-        <div className="mt-3">
+        <div className="mt-4 px-4 md:px-8">
           <ActiveWorkoutExerciseGroups
             exercises={activeWorkout.exercises}
             invalidSetIds={invalidSetIds}

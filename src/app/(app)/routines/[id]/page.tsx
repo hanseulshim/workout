@@ -216,6 +216,11 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
                         <span className="text-xs text-muted-foreground shrink-0">{rows.length} sets</span>
                       </div>
                       <p className="text-xs text-muted-foreground capitalize">{ex.muscle_group}</p>
+                      {re.notes && (
+                        <p className="mt-1.5 text-xs text-muted-foreground italic bg-muted/40 rounded-md px-2.5 py-1.5 border border-border/40 whitespace-pre-wrap">
+                          {re.notes}
+                        </p>
+                      )}
                     </CardHeader>
                     <CardContent className="pt-0 space-y-1.5">
                       <div className={`grid ${colClass} gap-2 px-1`}>
