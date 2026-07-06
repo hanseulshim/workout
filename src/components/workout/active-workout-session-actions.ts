@@ -74,6 +74,7 @@ export async function saveActiveWorkout(activeWorkout: ActiveWorkout, finishedAt
         const updateData: Record<string, unknown> = {
           notes: exercise.notes || null,
           rest_seconds: exercise.restSeconds,
+          superset_id: exercise.supersetId,
         };
 
         if (completedExerciseSets.length > 0) {

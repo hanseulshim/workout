@@ -492,12 +492,15 @@ export const useWorkoutStore = create<WorkoutStore>()(
           if (!state.activeWorkout) return {};
           const exercise = state.activeWorkout.exercises.find((item) => item.exerciseId === exerciseId);
           const supersetId = exercise?.supersetId;
+          const members = state.activeWorkout.exercises.filter((item) => item.supersetId === supersetId);
 
           return {
             activeWorkout: {
               ...state.activeWorkout,
               exercises: state.activeWorkout.exercises.map((item) =>
-                item.supersetId === supersetId ? { ...item, supersetId: null } : item
+                item.supersetId === supersetId
+                  ? { ...item, supersetId: members.length <= 2 ? null : item.exerciseId === exerciseId ? null : item.supersetId }
+                  : item
               ),
             },
           };

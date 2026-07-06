@@ -6,31 +6,31 @@ import { RoutineExerciseCard } from "./routine-exercise-card";
 
 type ExerciseGroup =
   | { type: "single"; ex: SelectedExercise }
-  | { type: "superset"; supersetId: string; exercises: SelectedExercise[] };
+  | { type: "superset"; supersetId: string; exercises: SelectedExercise[]; colorIndex: number };
 
 function buildGroups(exercises: SelectedExercise[]): ExerciseGroup[] {
   const groups: ExerciseGroup[] = [];
-  let i = 0;
+  const seenSupersets = new Set<string>();
+  let supersetCount = 0;
 
-  while (i < exercises.length) {
-    const ex = exercises[i];
-
+  for (const ex of exercises) {
     if (!ex.supersetId) {
       groups.push({ type: "single", ex });
-      i++;
       continue;
     }
 
-    const supersetId = ex.supersetId;
-    const members: SelectedExercise[] = [ex];
-
-    while (i + 1 < exercises.length && exercises[i + 1].supersetId === supersetId) {
-      i++;
-      members.push(exercises[i]);
+    if (seenSupersets.has(ex.supersetId)) {
+      continue;
     }
 
-    groups.push(members.length === 1 ? { type: "single", ex } : { type: "superset", supersetId, exercises: members });
-    i++;
+    const members = exercises.filter((item) => item.supersetId === ex.supersetId);
+    seenSupersets.add(ex.supersetId);
+
+    if (members.length <= 1) {
+      groups.push({ type: "single", ex });
+    } else {
+      groups.push({ type: "superset", supersetId: ex.supersetId, exercises: members, colorIndex: supersetCount++ });
+    }
   }
 
   return groups;
@@ -97,7 +97,7 @@ export function RoutineBuilderExerciseGroups({
               </div>
             ) : (
               <div className="space-y-1">
-                <SupersetGroup>
+                <SupersetGroup colorIndex={group.colorIndex}>
                   {group.exercises.map((exercise) => (
                     <RoutineExerciseCard
                       key={exercise.exerciseId}
