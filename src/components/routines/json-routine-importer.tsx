@@ -22,6 +22,7 @@ interface ParsedExercise {
   name: string;
   notes?: string;
   rest_seconds?: number;
+  superset_id?: string;
   sets: ParsedSet[];
 }
 
@@ -97,6 +98,7 @@ const AI_PROMPT = `Please format my workout routine as JSON using this exact str
       "name": "Exercise Name",
       "notes": "optional notes",
       "rest_seconds": 90,
+      "superset_id": "my-superset",
       "sets": [
         { "weight": "135", "reps": "10" },
         { "weight": "135", "reps": "10" }
@@ -108,7 +110,9 @@ const AI_PROMPT = `Please format my workout routine as JSON using this exact str
 Rules:
 - "days" is optional; use lowercase day names like "monday", "tuesday", etc.
 - For timed exercises use { "duration": "60" } (seconds) instead of weight/reps
-- "notes" and "rest_seconds" are optional
+- "notes", "rest_seconds", and "superset_id" are optional
+- Use the same "superset_id" value on multiple exercises to group them as a superset
+- Set "rest_seconds": 0 for no rest timer
 - Output ONLY the raw JSON, no markdown fences`;
 
 export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
@@ -178,7 +182,7 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
         logType: ex.logType as SelectedExercise["logType"],
         notes: ex.notes ?? "",
         restSeconds: ex.rest_seconds ?? 0,
-        supersetId: null,
+        supersetId: ex.superset_id ?? null,
         sets: ex.sets.map((s) => ({
           reps: s.duration ? s.duration : (s.reps ?? ""),
           weight: s.weight ?? undefined,

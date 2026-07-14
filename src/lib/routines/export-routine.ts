@@ -11,6 +11,7 @@ interface ExportedExercise {
   name: string;
   notes?: string;
   rest_seconds?: number;
+  superset_id?: string;
   sets: ExportedSet[];
 }
 
@@ -91,8 +92,12 @@ export function exportRoutineToJSON(
         exported.notes = ex.notes;
       }
 
-      if (ex.rest_seconds != null && ex.rest_seconds > 0) {
+      if (ex.rest_seconds != null) {
         exported.rest_seconds = ex.rest_seconds;
+      }
+
+      if (ex.superset_id != null) {
+        exported.superset_id = ex.superset_id;
       }
 
       return exported;

@@ -174,15 +174,15 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
               id: Math.random().toString(36).slice(2),
               setNumber: index + 1,
               reps: isDuration
-                ? (setTemplate.reps ?? "")
-                : previousSet?.reps?.toString() ?? setTemplate.reps ?? "",
-              weight: previousSet?.weight?.toString() ?? setTemplate.weight ?? "",
+                ? (setTemplate.reps ?? previousSet?.duration_seconds?.toString() ?? "")
+                : (setTemplate.reps || previousSet?.reps?.toString() ?? ""),
+              weight: (setTemplate.weight || previousSet?.weight?.toString() ?? ""),
               weightUnit: previousSet?.weight_unit === "kg" || previousSet?.weight_unit === "lbs"
                 ? previousSet.weight_unit
                 : defaultWeightUnit,
               isBodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(logType),
               durationSeconds: isDuration
-                ? previousSet?.duration_seconds?.toString() ?? setTemplate.reps ?? ""
+                ? (setTemplate.reps ?? previousSet?.duration_seconds?.toString() ?? "")
                 : "",
               completed: false,
             };

@@ -67,11 +67,30 @@ export async function saveActiveWorkout(activeWorkout: ActiveWorkout, finishedAt
   let routineSyncWarning = false;
 
   if (activeWorkout.routineId) {
+    // Fetch existing routine_exercises so we know what to insert vs. update vs. delete
+    const { data: existingRoutineExercises, error: fetchError } = await supabase
+      .from("routine_exercises")
+      .select("exercise_id")
+      .eq("routine_id", activeWorkout.routineId);
+
+    if (fetchError) throw fetchError;
+
+    const existingExerciseIds = new Set(
+      (existingRoutineExercises ?? []).map((row) => row.exercise_id),
+    );
+    const activeExerciseIds = new Set(
+      activeWorkout.exercises.map((ex) => ex.exerciseId),
+    );
+
+    const hasActiveExercises = activeWorkout.exercises.length > 0;
+
     const routineResults = await Promise.allSettled([
-      ...activeWorkout.exercises.map(async (exercise) => {
+      // Upsert: update existing routine_exercises rows and insert new ones
+      ...activeWorkout.exercises.map(async (exercise, index) => {
         const completedExerciseSets = exercise.sets.filter((setItem) => setItem.completed);
 
-        const updateData: Record<string, unknown> = {
+        const exerciseData: Record<string, unknown> = {
+          position: index + 1,
           notes: exercise.notes || null,
           rest_seconds: exercise.restSeconds,
           superset_id: exercise.supersetId,
@@ -84,18 +103,50 @@ export async function saveActiveWorkout(activeWorkout: ActiveWorkout, finishedAt
               : setItem.reps ?? "",
             weight: setItem.weight ?? "",
           }));
-          updateData.set_targets = setTargets;
-          updateData.default_sets = setTargets.length;
+          exerciseData.set_targets = setTargets;
+          exerciseData.default_sets = setTargets.length;
         }
 
-        const { error } = await supabase
-          .from("routine_exercises")
-          .update(updateData)
-          .eq("routine_id", activeWorkout.routineId!)
-          .eq("exercise_id", exercise.exerciseId);
-
-        if (error) throw error;
+        if (existingExerciseIds.has(exercise.exerciseId)) {
+          // Update existing row
+          const { error } = await supabase
+            .from("routine_exercises")
+            .update(exerciseData)
+            .eq("routine_id", activeWorkout.routineId!)
+            .eq("exercise_id", exercise.exerciseId);
+          if (error) throw error;
+        } else {
+          // Insert new row for an exercise added during the workout
+          const { error } = await supabase.from("routine_exercises").insert({
+            routine_id: activeWorkout.routineId!,
+            exercise_id: exercise.exerciseId,
+            default_sets: (exerciseData.default_sets as number | undefined) ?? exercise.sets.length,
+            set_targets: exerciseData.set_targets as Array<{ reps: string; weight?: string }> | undefined ?? null,
+            notes: exerciseData.notes as string | null ?? null,
+            rest_seconds: exerciseData.rest_seconds as number | null ?? null,
+            superset_id: exerciseData.superset_id as string | null ?? null,
+            position: index + 1,
+          });
+          if (error) throw error;
+        }
       }),
+
+      // Delete routine_exercises rows whose exercise was removed from the workout.
+      // Only do this when the workout isn't empty — otherwise we'd accidentally
+      // wipe the entire routine template.
+      ...(hasActiveExercises
+        ? Array.from(existingExerciseIds)
+          .filter((exId) => !activeExerciseIds.has(exId))
+          .map(async (exerciseId) => {
+            const { error } = await supabase
+              .from("routine_exercises")
+              .delete()
+              .eq("routine_id", activeWorkout.routineId!)
+              .eq("exercise_id", exerciseId);
+            if (error) throw error;
+          })
+        : []),
+
       supabase
         .from("routines")
         .update({ last_used_at: finishedAt })
