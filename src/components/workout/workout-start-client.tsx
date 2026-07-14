@@ -175,8 +175,8 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
               setNumber: index + 1,
               reps: isDuration
                 ? (setTemplate.reps ?? previousSet?.duration_seconds?.toString() ?? "")
-                : (setTemplate.reps || previousSet?.reps?.toString() ?? ""),
-              weight: (setTemplate.weight || previousSet?.weight?.toString() ?? ""),
+                : (setTemplate.reps || (previousSet?.reps?.toString() ?? "")),
+              weight: (setTemplate.weight || (previousSet?.weight?.toString() ?? "")),
               weightUnit: previousSet?.weight_unit === "kg" || previousSet?.weight_unit === "lbs"
                 ? previousSet.weight_unit
                 : defaultWeightUnit,
