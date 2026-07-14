@@ -239,6 +239,13 @@ export function ActiveWorkoutScreen() {
     toast.error("Enter valid set values before marking it complete.");
   }
 
+  function handleTimerToggle() {
+    // User is manually toggling the rest timer — clear the auto-pause flag
+    // so that resuming the workout doesn't force-resume it.
+    restTimerPausedByWorkout.current = false;
+    pauseRestTimer();
+  }
+
   function handlePauseToggle() {
     if (!workoutPaused) {
       pauseWorkout();
@@ -248,9 +255,14 @@ export function ActiveWorkoutScreen() {
       }
     } else {
       resumeWorkout();
-      if (restTimerPausedByWorkout.current && restTimer.active && restTimer.paused) {
+      // Only auto-resume the rest timer if the workout was the one that paused it
+      // and the user hasn't manually toggled it since.
+      if (restTimerPausedByWorkout.current) {
         restTimerPausedByWorkout.current = false;
-        pauseRestTimer();
+        if (restTimer.paused) {
+          pauseRestTimer();
+        }
+        // If the timer is already running (user manually resumed it), leave it alone.
       }
     }
   }
@@ -335,7 +347,7 @@ export function ActiveWorkoutScreen() {
             <ActiveWorkoutRestTimer
               remainingSeconds={remainingSeconds}
               paused={restTimer.paused}
-              onTogglePause={pauseRestTimer}
+              onTogglePause={handleTimerToggle}
               onStop={stopRestTimer}
             />
           )}
