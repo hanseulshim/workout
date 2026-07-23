@@ -73,20 +73,23 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
   const [starting, setStarting] = useState(false);
   const [manualRoutineWarning, setManualRoutineWarning] = useState<string | null>(null);
   const [conflictPending, setConflictPending] = useState<{ routine: RoutineWithExercises | null; name?: string } | null>(null);
-  const startedRef = useRef(false);
+  const startedRef = useRef<string | null>(null);
 
   const emptyRoutineMessage = "This routine has no exercises. Add exercises before starting.";
   const emptyPreselectedRoutine = Boolean(preselectedRoutine && preselectedRoutine.routine_exercises.length === 0);
   const routineWarning = emptyPreselectedRoutine ? emptyRoutineMessage : manualRoutineWarning;
 
   async function discardActiveAndStart(routine: RoutineWithExercises | null, name?: string) {
+    const supabase = createClient();
     if (activeWorkout?.sessionId) {
-      const supabase = createClient();
       await supabase.from("workout_sessions").delete().eq("id", activeWorkout.sessionId);
     }
+    // Clean up any remaining unfinished workout sessions for this user
+    await supabase.from("workout_sessions").delete().eq("user_id", userId).is("finished_at", null);
 
     endWorkout();
     setConflictPending(null);
+    startedRef.current = null;
     await handleStart(routine, name);
   }
 
@@ -111,24 +114,39 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
 
     let existingQuery = supabase
       .from("workout_sessions")
-      .select("id")
+      .select("id, routine_id")
       .eq("user_id", userId)
       .is("finished_at", null)
-      .gte("started_at", startedAfter);
+      .gte("started_at", startedAfter)
+      .order("started_at", { ascending: false })
+      .limit(1);
 
     existingQuery = routine?.id ? existingQuery.eq("routine_id", routine.id) : existingQuery.is("routine_id", null);
 
-    const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+    const { data: existingList, error: existingError } = await existingQuery;
     if (existingError) {
       toast.error("Failed to start workout");
       setStarting(false);
       return;
     }
 
+    const existing = existingList?.[0] ?? null;
+
     if (existing) {
-      router.push(`/workout/${existing.id}`);
-      setStarting(false);
-      return;
+      if (activeWorkout?.sessionId === existing.id) {
+        router.push(`/workout/${existing.id}`);
+        setStarting(false);
+        return;
+      }
+
+      // Session exists in DB but not in local state — clean it up so a new session can start
+      if (!activeWorkout?.sessionId) {
+        await supabase.from("workout_sessions").delete().eq("id", existing.id);
+      } else {
+        setConflictPending({ routine: routine ?? null, name });
+        setStarting(false);
+        return;
+      }
     }
 
     const { data: session, error } = await supabase
@@ -202,12 +220,14 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
   }
 
   useEffect(() => {
-    if (!preselectedRoutine || startedRef.current) return;
+    if (!preselectedRoutine) return;
+    if (startedRef.current === preselectedRoutine.id) return;
 
-    startedRef.current = true;
     if (emptyPreselectedRoutine) {
       return;
     }
+
+    startedRef.current = preselectedRoutine.id;
 
     if (activeWorkout?.sessionId && activeWorkout.routineId === preselectedRoutine.id) {
       router.push(`/workout/${activeWorkout.sessionId}`);
@@ -216,7 +236,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
 
     void handleStart(preselectedRoutine, preselectedRoutine.name);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [preselectedRoutine?.id]);
 
   if (preselectedRoutine && !conflictPending && !emptyPreselectedRoutine) {
     return (

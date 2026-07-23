@@ -16,9 +16,13 @@ export function ActiveWorkoutBanner() {
 
   async function handleDiscard() {
     if (!activeWorkout) return;
-    const supabase = createClient();
     if (activeWorkout.sessionId) {
-      await supabase.from("workout_sessions").delete().eq("id", activeWorkout.sessionId);
+      try {
+        const supabase = createClient();
+        await supabase.from("workout_sessions").delete().eq("id", activeWorkout.sessionId);
+      } catch (error) {
+        console.error("Failed to delete workout session from DB:", error);
+      }
     }
     endWorkout();
   }

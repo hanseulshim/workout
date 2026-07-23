@@ -24,13 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 import {
   useWorkoutStore,
+  type ActiveExercise,
   type ActiveSet,
   type RestTimerState,
 } from "@/store/workout-store";
 import { keepAudioAlive, playRestChime, unlockAudio } from "@/lib/audio";
-import type { Exercise } from "@/types/database";
+import type { Exercise, LogType } from "@/types/database";
 
 function nowMs() {
   return Date.now();
@@ -42,7 +44,11 @@ function getRemainingSeconds(restTimer: RestTimerState, now: number | null) {
   return Math.max(0, Math.ceil((restTimer.endsAt - now) / 1000));
 }
 
-export function ActiveWorkoutScreen() {
+interface ActiveWorkoutScreenProps {
+  sessionId?: string;
+}
+
+export function ActiveWorkoutScreen({ sessionId }: ActiveWorkoutScreenProps) {
   const router = useRouter();
   const {
     activeWorkout,
@@ -53,6 +59,7 @@ export function ActiveWorkoutScreen() {
     updateSet,
     toggleSetComplete,
     reorderExercises,
+    startWorkout,
     endWorkout,
     restTimer,
     stopRestTimer,
@@ -72,6 +79,7 @@ export function ActiveWorkoutScreen() {
   } = useWorkoutStore();
 
   const [finishing, setFinishing] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(false);
   const [addExerciseOpen, setAddExerciseOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
@@ -80,6 +88,198 @@ export function ActiveWorkoutScreen() {
   const [now, setNow] = useState<number | null>(null);
   const [invalidSetIds, setInvalidSetIds] = useState<Set<string>>(new Set());
   const restTimerPausedByWorkout = useRef(false);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setLoadingSession(false);
+      return;
+    }
+    if (activeWorkout && activeWorkout.sessionId === sessionId) {
+      setLoadingSession(false);
+      return;
+    }
+
+    let cancelled = false;
+    async function hydrateSession() {
+      setLoadingSession(true);
+      const supabase = createClient();
+      const { data: session } = await supabase
+        .from("workout_sessions")
+        .select("id, name, routine_id, started_at, finished_at")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (!session || session.finished_at !== null) {
+        if (activeWorkout?.sessionId === sessionId) {
+          endWorkout();
+        }
+        setLoadingSession(false);
+        return;
+      }
+
+      // Fetch routine exercises if attached to a routine
+      let routineExercises: Array<{
+        id: string;
+        exercise_id: string;
+        position: number;
+        default_sets: number;
+        default_reps: number | null;
+        set_targets: Array<{ reps: string; weight?: string }> | null;
+        superset_id: string | null;
+        rest_seconds: number | null;
+        notes: string | null;
+        exercises: { id: string; name: string; log_type: string; gif_url: string | null } | null;
+      }> = [];
+
+      if (session.routine_id) {
+        const { data: routineData } = await supabase
+          .from("routines")
+          .select(`routine_exercises(id, exercise_id, position, default_sets, default_reps, set_targets, superset_id, rest_seconds, notes, exercises(id, name, log_type, gif_url))`)
+          .eq("id", session.routine_id)
+          .maybeSingle();
+
+        if (routineData?.routine_exercises) {
+          routineExercises = (routineData.routine_exercises as unknown as typeof routineExercises).map((ex) => ({
+            ...ex,
+            exercises: Array.isArray(ex.exercises) ? ex.exercises[0] ?? null : ex.exercises,
+          }));
+        }
+      }
+
+      const { data: loggedSetsRaw } = await supabase
+        .from("workout_sets")
+        .select("id, exercise_id, set_number, reps, weight, weight_unit, is_bodyweight, duration_seconds, rest_seconds, completed_at")
+        .eq("session_id", session.id)
+        .order("set_number");
+
+      if (cancelled) return;
+
+      type LoggedSet = {
+        id: string;
+        exercise_id: string;
+        set_number: number;
+        reps: number | null;
+        weight: number | null;
+        weight_unit: "kg" | "lbs";
+        is_bodyweight: boolean;
+        duration_seconds: number | null;
+      };
+      const loggedSets = (loggedSetsRaw ?? []) as LoggedSet[];
+
+      const routineExIds = new Set(routineExercises.map((re) => re.exercise_id));
+      const extraExIds = Array.from(new Set(loggedSets.map((s) => s.exercise_id))).filter((id) => !routineExIds.has(id));
+
+      const extraExercisesMap = new Map<string, { id: string; name: string; log_type: string; gif_url: string | null }>();
+      if (extraExIds.length > 0) {
+        const { data: extraExData } = await supabase
+          .from("exercises")
+          .select("id, name, log_type, gif_url")
+          .in("id", extraExIds);
+        (extraExData ?? []).forEach((ex) => extraExercisesMap.set(ex.id, ex));
+      }
+
+      const activeExercises: ActiveExercise[] = [];
+
+      routineExercises
+        .sort((a, b) => a.position - b.position)
+        .forEach((re) => {
+          const exMeta = re.exercises;
+          const logType = (exMeta?.log_type ?? "weight_reps") as LogType;
+          const setTemplates: Array<{ reps: string; weight?: string }> = re.set_targets ?? Array.from({ length: re.default_sets }, () => ({ reps: re.default_reps?.toString() ?? "", weight: "" }));
+          const isDuration = logType === "duration";
+          const exLoggedSets = loggedSets.filter((s) => s.exercise_id === re.exercise_id);
+
+          const sets: ActiveSet[] = setTemplates.map((setTemplate, index) => {
+            const logged = exLoggedSets.find((s) => s.set_number === index + 1);
+            return {
+              id: logged?.id ?? Math.random().toString(36).slice(2),
+              setNumber: index + 1,
+              reps: logged ? (logged.reps?.toString() ?? "") : (isDuration ? (setTemplate.reps ?? "") : (setTemplate.reps ?? "")),
+              weight: logged ? (logged.weight?.toString() ?? "") : (setTemplate.weight ?? ""),
+              weightUnit: logged ? logged.weight_unit : defaultWeightUnit,
+              isBodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(logType),
+              durationSeconds: logged ? (logged.duration_seconds?.toString() ?? "") : (isDuration ? (setTemplate.reps ?? "") : ""),
+              completed: Boolean(logged),
+            };
+          });
+
+          if (exLoggedSets.length > setTemplates.length) {
+            exLoggedSets.slice(setTemplates.length).forEach((logged) => {
+              sets.push({
+                id: logged.id,
+                setNumber: logged.set_number,
+                reps: logged.reps?.toString() ?? "",
+                weight: logged.weight?.toString() ?? "",
+                weightUnit: logged.weight_unit,
+                isBodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(logType),
+                durationSeconds: logged.duration_seconds?.toString() ?? "",
+                completed: true,
+              });
+            });
+          }
+
+          activeExercises.push({
+            exerciseId: re.exercise_id,
+            exerciseName: exMeta?.name ?? "Unknown",
+            gifUrl: exMeta?.gif_url ?? null,
+            logType,
+            supersetId: re.superset_id ?? null,
+            restSeconds: re.rest_seconds ?? 90,
+            notes: re.notes ?? "",
+            bestWeight: null,
+            bestReps: null,
+            bestDuration: null,
+            sets,
+          });
+        });
+
+      extraExIds.forEach((exId) => {
+        const exMeta = extraExercisesMap.get(exId);
+        const exLoggedSets = loggedSets.filter((s) => s.exercise_id === exId);
+        const logType = (exMeta?.log_type ?? "weight_reps") as LogType;
+
+        activeExercises.push({
+          exerciseId: exId,
+          exerciseName: exMeta?.name ?? "Unknown",
+          gifUrl: exMeta?.gif_url ?? null,
+          logType,
+          supersetId: null,
+          restSeconds: 90,
+          notes: "",
+          bestWeight: null,
+          bestReps: null,
+          bestDuration: null,
+          sets: exLoggedSets.map((logged) => ({
+            id: logged.id,
+            setNumber: logged.set_number,
+            reps: logged.reps?.toString() ?? "",
+            weight: logged.weight?.toString() ?? "",
+            weightUnit: logged.weight_unit,
+            isBodyweight: ["bodyweight_reps", "weighted_bodyweight", "assisted_bodyweight"].includes(logType),
+            durationSeconds: logged.duration_seconds?.toString() ?? "",
+            completed: true,
+          })),
+        });
+      });
+
+      startWorkout({
+        sessionId: session.id,
+        name: session.name,
+        routineId: session.routine_id ?? null,
+        startedAt: session.started_at,
+        exercises: activeExercises,
+      });
+
+      setLoadingSession(false);
+    }
+
+    void hydrateSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, activeWorkout?.sessionId, defaultWeightUnit, startWorkout, endWorkout]);
 
   // Unlock the Web Audio API on every user gesture so iOS Safari/PWA keeps
   // the AudioContext running. iOS can close the context when backgrounded, so
@@ -163,6 +363,15 @@ export function ActiveWorkoutScreen() {
     toast.success(`🏆 New PR! ${newPr.exerciseName}: ${newPr.value}`);
     clearPr();
   }, [newPr, clearPr]);
+
+  if (loadingSession) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Loading active workout…</p>
+      </div>
+    );
+  }
 
   if (!activeWorkout) {
     return (
@@ -292,10 +501,19 @@ export function ActiveWorkoutScreen() {
 
   async function handleDiscard() {
     const currentWorkout = activeWorkout;
-    if (!currentWorkout?.sessionId) return;
-    await discardActiveWorkout(currentWorkout.sessionId);
-    endWorkout();
-    router.push("/");
+    if (!currentWorkout?.sessionId) {
+      endWorkout();
+      router.push("/");
+      return;
+    }
+    try {
+      await discardActiveWorkout(currentWorkout.sessionId);
+    } catch (error) {
+      console.error("Failed to discard session in DB:", error);
+    } finally {
+      endWorkout();
+      router.push("/");
+    }
   }
 
   return (
