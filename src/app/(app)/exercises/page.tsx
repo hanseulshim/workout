@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { ExerciseList } from "@/components/exercises/exercise-list";
 export const metadata = { title: "Exercises | Workout" };
 
@@ -6,17 +7,18 @@ export const metadata = { title: "Exercises | Workout" };
 export default async function ExercisesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
   const { data: exercises } = await supabase
     .from("exercises")
     .select("*")
-    .or(`is_custom.eq.false,user_id.eq.${user!.id}`)
+    .or(`is_custom.eq.false,user_id.eq.${user.id}`)
     .order("name");
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Exercises</h1>
-      <ExerciseList exercises={exercises ?? []} userId={user!.id} />
+      <ExerciseList exercises={exercises ?? []} userId={user.id} />
     </div>
   );
 }

@@ -77,6 +77,7 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
+          days: number[];
           created_at: string;
           updated_at: string;
           last_used_at: string | null;
@@ -85,6 +86,7 @@ export interface Database {
           id?: string;
           user_id: string;
           name: string;
+          days?: number[];
           created_at?: string;
           updated_at?: string;
           last_used_at?: string | null;
@@ -172,7 +174,28 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      get_user_exercises: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          id: string;
+          name: string;
+          muscle_group: MuscleGroup;
+          category: ExerciseCategory;
+        }>;
+      };
+      get_user_last_sets: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          exercise_id: string;
+          weight: number | null;
+          reps: number | null;
+          duration_seconds: number | null;
+          weight_unit: WeightUnit;
+          log_type: LogType;
+        }>;
+      };
+    };
     Enums: {
       weight_unit: WeightUnit;
       exercise_category: ExerciseCategory;

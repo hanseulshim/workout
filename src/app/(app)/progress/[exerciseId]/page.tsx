@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { ProgressCharts } from "@/components/progress/progress-charts";
@@ -11,6 +11,7 @@ export default async function ExerciseProgressPage({ params }: { params: Promise
   const { exerciseId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
   const { data: exercise } = await supabase
     .from("exercises")
@@ -24,14 +25,14 @@ export default async function ExerciseProgressPage({ params }: { params: Promise
     .from("workout_sets")
     .select("id, weight, reps, duration_seconds, completed_at, weight_unit, is_bodyweight, workout_sessions!inner(started_at, user_id)")
     .eq("exercise_id", exerciseId)
-    .eq("workout_sessions.user_id", user!.id)
+    .eq("workout_sessions.user_id", user.id)
     .order("completed_at", { ascending: true })
     .limit(200);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Link href="/progress" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
+        <Link href="/progress" aria-label="Back to progress" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
           <ChevronLeft className="h-4 w-4" />
         </Link>
         <h1 className="text-xl font-bold">{exercise.name}</h1>

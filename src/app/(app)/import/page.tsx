@@ -1,6 +1,7 @@
 import { HevyImportClient } from "@/components/import/hevy-import-client";
 import { JsonRoutineImporter } from "@/components/routines/json-routine-importer";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export const metadata = { title: "Import | Workout" };
 
@@ -10,11 +11,12 @@ export default async function ImportPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
   const { data: exercises } = await supabase
     .from("exercises")
     .select("id, name, log_type, gif_url")
-    .or(`is_custom.eq.false,user_id.eq.${user!.id}`);
+    .or(`is_custom.eq.false,user_id.eq.${user.id}`);
 
   async function resolveExercises(names: string[]) {
     "use server";
@@ -53,10 +55,10 @@ export default async function ImportPage() {
           <TabsTrigger value="json" className="flex-1">Routine from AI</TabsTrigger>
         </TabsList>
         <TabsContent value="hevy" className="mt-4">
-          <HevyImportClient userId={user!.id} existingExercises={exercises ?? []} />
+          <HevyImportClient userId={user.id} existingExercises={exercises ?? []} />
         </TabsContent>
         <TabsContent value="json" className="mt-4">
-          <JsonRoutineImporter userId={user!.id} resolveExercises={resolveExercises} />
+          <JsonRoutineImporter userId={user.id} resolveExercises={resolveExercises} />
         </TabsContent>
       </Tabs>
     </div>
