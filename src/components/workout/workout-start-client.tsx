@@ -281,14 +281,14 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
         <h1 className="text-2xl font-bold">Start Workout</h1>
 
         {routineWarning && (
-          <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-100">
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
             {routineWarning}
           </div>
         )}
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Workout Name</label>
-          <Input value={workoutName} onChange={(event) => setWorkoutName(event.target.value)} placeholder="e.g. Push Day" />
+          <label htmlFor="workout-name" className="text-sm font-medium">Workout Name</label>
+          <Input id="workout-name" value={workoutName} onChange={(event) => setWorkoutName(event.target.value)} placeholder="e.g. Push Day" />
         </div>
 
         <Button className="h-14 w-full text-base" onClick={() => handleStart(null)} disabled={starting || !workoutName.trim()}>
@@ -314,7 +314,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
                   </button>
                   <button
                     onClick={() => router.push(`/workout/start?routine=${routine.id}`)}
-                    className="min-h-[44px] min-w-[44px] shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
                     title="Start workout"
                     aria-label={`Start ${routine.name}`}
                   >
@@ -342,7 +342,7 @@ export function WorkoutStartClient({ routines, preselectedRoutine, userId, lastS
                         </button>
                         <button
                           onClick={() => router.push(`/workout/start?routine=${routine.id}`)}
-                          className="min-h-[44px] min-w-[44px] shrink-0 rounded-md text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                           title="Start workout"
                           aria-label={`Start ${routine.name}`}
                         >

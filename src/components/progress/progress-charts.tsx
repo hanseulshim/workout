@@ -109,7 +109,13 @@ export function ProgressCharts({ sets }: Props) {
       allTimeMaxDuration: Math.max(...computed.map((d) => d.maxDuration)),
       bestWeightSet: sets.reduce<SetRow | null>((best, setRow) => {
         if (setRow.weight == null) return best;
-        if (!best || (best.weight ?? 0) < setRow.weight) return setRow;
+        if (
+          !best ||
+          (best.weight ?? 0) < setRow.weight ||
+          ((best.weight ?? 0) === setRow.weight && (best.reps ?? 0) < (setRow.reps ?? 0))
+        ) {
+          return setRow;
+        }
         return best;
       }, null),
       hasWeight: hasWeightVal,
@@ -131,7 +137,7 @@ export function ProgressCharts({ sets }: Props) {
       : `${sec}s`;
   }
 
-  const chartColor = "hsl(var(--primary))";
+  const chartColor = "var(--primary)";
 
   return (
     <div className="space-y-4">
@@ -140,7 +146,7 @@ export function ProgressCharts({ sets }: Props) {
         <Badge className="flex items-center gap-1">
           <Trophy className="h-3 w-3" />
           {hasWeight
-            ? `Best: ${allTimeMax} ${bestWeightSet?.weight_unit ?? "lbs"} × ${allTimeMaxReps} reps`
+            ? `Best: ${allTimeMax} ${bestWeightSet?.weight_unit ?? "lbs"}${bestWeightSet?.reps != null ? ` × ${bestWeightSet.reps} reps` : ""}`
             : hasDuration
               ? `Best hold: ${formatDuration(allTimeMaxDuration)}`
               : `Best: ${allTimeMaxReps} reps`}

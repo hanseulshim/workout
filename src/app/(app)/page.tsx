@@ -106,10 +106,13 @@ export default async function DashboardPage() {
 
         {recentWorkouts && recentWorkouts.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recent Workouts</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recent Workouts</h2>
+              <Link href="/history" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
+            </div>
             <div className="space-y-2">
               {recentWorkouts.map((session) => (
-                <Card key={session.id}>
+                <Card key={session.id} className="cursor-pointer transition-colors hover:bg-muted/50">
                   <Link href={`/history/${session.id}`}>
                     <CardContent className="flex items-center justify-between py-4">
                       <div>
@@ -119,6 +122,7 @@ export default async function DashboardPage() {
                           {formatDistanceToNow(new Date(session.started_at), { addSuffix: true })}
                         </p>
                       </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </CardContent>
                   </Link>
                 </Card>

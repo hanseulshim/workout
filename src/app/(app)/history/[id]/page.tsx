@@ -67,7 +67,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Link href="/history" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
+        <Link href="/history" aria-label="Back to history" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
           <ChevronLeft className="h-4 w-4" />
         </Link>
         <h1 className="truncate text-xl font-bold">{session.name}</h1>
@@ -81,7 +81,6 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
         <WorkoutDurationEditor
           sessionId={session.id}
           startedAt={session.started_at}
-          finishedAt={session.finished_at ?? null}
           initialDurationMin={duration}
         />
         {totalVolume > 0 && <Badge variant="secondary">{totalVolume.toLocaleString()} {volumeUnit} total volume</Badge>}

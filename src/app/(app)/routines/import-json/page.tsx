@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { JsonRoutineImporter } from "@/components/routines/json-routine-importer";
 export const metadata = { title: "Import Routine from JSON | Workout" };
 
@@ -40,7 +44,12 @@ export default async function ImportJsonRoutinePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Import Routine from JSON</h1>
+        <div className="flex items-center gap-2">
+          <Link href="/routines" aria-label="Back to routines" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 shrink-0")}>
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-2xl font-bold">Import Routine from JSON</h1>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Use AI to format your routine, then paste the JSON below to create it instantly.
         </p>

@@ -111,11 +111,11 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Link href="/routines" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 shrink-0")}>
+          <Link href="/routines" aria-label="Back to routines" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 shrink-0")}>
             <ChevronLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold truncate">{routine.name}</h1>
+            <h1 className="text-xl font-bold truncate">{routine.name}</h1>
             <p className="text-sm text-muted-foreground">{exercises.length} exercises</p>
           </div>
         </div>
@@ -129,6 +129,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           <RoutineDeleteButton routineId={id} />
           <Link
             href={`/routines/${id}/edit`}
+            aria-label="Edit routine"
             className={cn(buttonVariants({ variant: "outline", size: "icon" }), "h-8 w-8 sm:w-auto sm:px-3")}
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -136,6 +137,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           </Link>
           <Link
             href={`/workout/start?routine=${id}`}
+            aria-label="Start workout"
             className={cn(buttonVariants({ size: "icon" }), "h-8 w-8 sm:w-auto sm:px-3")}
           >
             <Play className="h-3.5 w-3.5" />
@@ -215,7 +217,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
                         <CardTitle className="text-base truncate">{ex.name}</CardTitle>
                         <span className="text-xs text-muted-foreground shrink-0">{rows.length} sets</span>
                       </div>
-                      <p className="text-xs text-muted-foreground capitalize">{ex.muscle_group}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{ex.muscle_group.replace(/_/g, " ")}</p>
                       {re.notes && (
                         <p className="mt-1.5 text-xs text-muted-foreground italic bg-muted/40 rounded-md px-2.5 py-1.5 border border-border/40 whitespace-pre-wrap">
                           {re.notes}

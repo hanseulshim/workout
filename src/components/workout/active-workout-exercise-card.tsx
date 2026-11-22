@@ -154,7 +154,12 @@ export function ActiveWorkoutExerciseCard({
               {formatRest(exercise.restSeconds)}
             </Button>
             {exercise.sets.length > 1 && (
-              <Button variant="ghost" size="sm" onClick={() => onRemoveSet(exercise.sets[exercise.sets.length - 1].id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemoveSet(exercise.sets[exercise.sets.length - 1].id)}
+                aria-label="Remove set"
+              >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -244,6 +249,8 @@ function SetRow({
     <button
       type="button"
       onClick={onToggleComplete}
+      aria-label={set.completed ? "Mark set incomplete" : "Mark set complete"}
+      aria-pressed={set.completed}
       className={cn(
         "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
         set.completed ? "bg-primary text-primary-foreground" : "border border-input hover:bg-muted",

@@ -42,7 +42,7 @@ export default async function HistoryPage() {
             : null;
 
           return (
-            <Card key={session.id}>
+            <Card key={session.id} className="hover:bg-muted/50 transition-colors">
               <Link href={`/history/${session.id}`}>
                 <CardContent className="flex items-center justify-between py-4">
                   <div className="space-y-1">
@@ -53,7 +53,7 @@ export default async function HistoryPage() {
                     {duration !== null && (
                       <Badge variant="secondary" className="text-xs">
                         <Clock className="h-3 w-3 mr-1" />
-                        {duration}m
+                        {duration} min
                       </Badge>
                     )}
                   </div>

@@ -9,11 +9,10 @@ import { updateWorkoutFinishedAt } from "./actions";
 interface Props {
   sessionId: string;
   startedAt: string;
-  finishedAt: string | null;
   initialDurationMin: number | null;
 }
 
-export function WorkoutDurationEditor({ sessionId, startedAt, finishedAt, initialDurationMin }: Props) {
+export function WorkoutDurationEditor({ sessionId, startedAt, initialDurationMin }: Props) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(initialDurationMin?.toString() ?? "");
   const [saving, setSaving] = useState(false);
@@ -75,8 +74,8 @@ export function WorkoutDurationEditor({ sessionId, startedAt, finishedAt, initia
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="rounded p-0.5 text-primary hover:bg-primary/10 transition-colors"
-          aria-label="Save"
+          className="flex h-8 w-8 items-center justify-center rounded text-primary hover:bg-primary/10 transition-colors"
+          aria-label="Save duration"
         >
           <Check className="h-3.5 w-3.5" />
         </button>
@@ -84,7 +83,7 @@ export function WorkoutDurationEditor({ sessionId, startedAt, finishedAt, initia
           type="button"
           onClick={handleCancel}
           disabled={saving}
-          className="rounded p-0.5 text-muted-foreground hover:bg-muted transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted transition-colors"
           aria-label="Cancel"
         >
           <X className="h-3.5 w-3.5" />
@@ -99,7 +98,7 @@ export function WorkoutDurationEditor({ sessionId, startedAt, finishedAt, initia
         <Clock className="h-3 w-3" />
         {initialDurationMin !== null ? `${initialDurationMin} min` : "Set duration"}
       </Badge>
-      <Pencil className="ml-0.5 h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      <Pencil className="ml-0.5 h-3 w-3 text-muted-foreground opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
     </button>
   );
 }

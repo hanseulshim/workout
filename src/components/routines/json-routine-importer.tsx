@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Clipboard, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Clipboard, FileJson, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,10 +207,14 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
     }
   }
 
-  function copyPrompt() {
-    navigator.clipboard.writeText(AI_PROMPT);
-    setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 2000);
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(AI_PROMPT);
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    } catch {
+      toast.error("Failed to copy prompt");
+    }
   }
 
   const unmatched = resolved?.filter((r) => !r.matched) ?? [];
@@ -225,7 +229,10 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
             className="flex w-full items-center justify-between text-left"
             onClick={() => setShowPrompt((v) => !v)}
           >
-            <CardTitle className="text-base">📋 Get AI to format your routine</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clipboard className="h-4 w-4 text-muted-foreground" />
+              Get AI to format your routine
+            </CardTitle>
             {showPrompt ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </button>
         </CardHeader>
@@ -251,7 +258,10 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
             className="flex w-full items-center justify-between text-left"
             onClick={() => setShowExample((v) => !v)}
           >
-            <CardTitle className="text-base">📄 Example JSON format</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileJson className="h-4 w-4 text-muted-foreground" />
+              Example JSON format
+            </CardTitle>
             {showExample ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </button>
         </CardHeader>
@@ -300,7 +310,7 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
                 <Badge variant="outline">{resolved.length} exercises</Badge>
               </div>
               {existingRoutine && (
-                <div className="rounded-md border border-blue-400/50 bg-blue-50 dark:bg-blue-950/20 p-3 text-sm text-blue-700 dark:text-blue-400">
+                <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
                   Existing routine found — clicking <strong>Update Routine</strong> will replace its exercises and notes.
                 </div>
               )}
@@ -308,12 +318,12 @@ export function JsonRoutineImporter({ userId, resolveExercises }: Props) {
           </Card>
 
           {unmatched.length > 0 && (
-            <div className="rounded-md border border-yellow-400/50 bg-yellow-50 dark:bg-yellow-950/20 p-3 space-y-1">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-yellow-700 dark:text-yellow-400">
+            <div className="rounded-md border border-warning/30 bg-warning/10 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-warning">
                 <AlertCircle className="h-4 w-4" />
                 {unmatched.length} exercise{unmatched.length > 1 ? "s" : ""} not found in your library
               </div>
-              <ul className="text-xs text-yellow-600 dark:text-yellow-500 list-disc pl-5">
+              <ul className="text-xs text-warning/90 list-disc pl-5">
                 {unmatched.map((u, i) => <li key={i}>{u.name}</li>)}
               </ul>
               <p className="text-xs text-muted-foreground">They&apos;ll be skipped. You can add them manually after creating.</p>

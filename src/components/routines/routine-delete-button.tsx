@@ -33,6 +33,7 @@ export function RoutineDeleteButton({ routineId }: { routineId: string }) {
     }
     toast.success("Routine deleted");
     router.push("/routines");
+    router.refresh();
   }
 
   return (

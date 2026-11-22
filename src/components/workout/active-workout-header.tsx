@@ -59,7 +59,7 @@ export function ActiveWorkoutHeader({
             <h1 className="truncate text-base font-bold leading-tight">{name}</h1>
             <p className="text-xs tabular-nums text-muted-foreground leading-none mt-0.5">
               {formatElapsed(startedAt, now, totalPausedMs)}
-              {paused && <span className="ml-1 text-amber-500 font-medium">· Paused</span>}
+              {paused && <span className="ml-1 text-warning font-medium">· Paused</span>}
             </p>
           </div>
         </div>

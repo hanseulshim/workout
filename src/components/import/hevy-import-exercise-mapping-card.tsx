@@ -59,6 +59,8 @@ export function HevyImportExerciseMappingCard({
               <div className="flex items-center gap-3 px-3 py-2">
                 <button
                   type="button"
+                  aria-label={expanded ? `Collapse ${effective}` : `Expand ${effective}`}
+                  aria-expanded={expanded}
                   className="shrink-0 text-muted-foreground hover:text-foreground"
                   onClick={() => onToggleExpand(exercise.name)}
                 >
@@ -89,6 +91,7 @@ export function HevyImportExerciseMappingCard({
                       />
                       <button
                         type="button"
+                        aria-label="Cancel rename"
                         className="text-muted-foreground hover:text-foreground"
                         onMouseDown={(event) => {
                           event.preventDefault();
@@ -116,6 +119,7 @@ export function HevyImportExerciseMappingCard({
                   {!isEditing && !excluded && (
                     <button
                       type="button"
+                      aria-label={`Rename ${effective}`}
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => onStartEdit(exercise.name)}
                     >

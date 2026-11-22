@@ -59,6 +59,8 @@ export function RoutineExerciseCard({
             </button>
             {ex.sets.length > 1 && (
               <button
+                type="button"
+                aria-label="Remove set"
                 onClick={() => onRemoveSet(ex.exerciseId, ex.sets.length - 1)}
                 className="px-3 py-1.5 border border-dashed rounded-md text-muted-foreground hover:text-destructive transition-colors"
               >

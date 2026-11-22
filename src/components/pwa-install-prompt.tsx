@@ -64,7 +64,7 @@ export function PwaInstallPrompt() {
           </div>
           <div className="flex items-center gap-1">
             <Button size="sm" onClick={handleInstall}>Install</Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleDismiss}>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleDismiss} aria-label="Dismiss install prompt">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -84,7 +84,7 @@ export function PwaInstallPrompt() {
               Tap <strong>Share</strong> then <strong>Add to Home Screen</strong> to install
             </p>
           </div>
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleDismiss}>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={handleDismiss} aria-label="Dismiss install prompt">
             <X className="h-4 w-4" />
           </Button>
         </CardContent>

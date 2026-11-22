@@ -3,11 +3,22 @@
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Search, Plus, Dumbbell, ArrowLeft, Info, Check, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -79,7 +90,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   const [newLogType, setNewLogType] = useState<LogType>("weight_reps");
   const [newGifUrl, setNewGifUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -140,7 +150,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   function goBack() {
     setView("list");
     setDetailExercise(null);
-    setConfirmDelete(false);
   }
 
   function toggleSelect(ex: Exercise) {
@@ -298,7 +307,6 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
       toast.error("Failed to delete exercise");
     } else {
       setExercises((prev) => prev.filter((e) => e.id !== ex.id));
-      setConfirmDelete(false);
       goBack();
       toast.success(`${ex.name} deleted`);
     }
@@ -310,34 +318,47 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     return (
       <div className="flex flex-col h-full">
         {/* Sub-header */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
-          <Button variant="ghost" size="icon-sm" onClick={goBack}>
+        <div className={cn("flex items-center gap-2 py-3 border-b shrink-0", selectable && "px-4")}>
+          <Button variant="ghost" size="icon-sm" aria-label="Back" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-medium text-sm truncate flex-1">{ex.name}</span>
           {ex.is_custom && (
             <>
-              <Button variant="ghost" size="icon-sm" onClick={() => openEdit(ex)}>
+              <Button variant="ghost" size="icon-sm" aria-label="Edit exercise" onClick={() => openEdit(ex)}>
                 <Pencil className="h-4 w-4" />
               </Button>
-              {confirmDelete ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving}
-                  onClick={() => handleDeleteExercise(ex)}
-                >
-                  {saving ? "Deleting…" : "Confirm delete"}
-                </Button>
-              ) : (
-                <Button variant="ghost" size="icon-sm" onClick={() => setConfirmDelete(true)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              )}
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button variant="ghost" size="icon-sm" aria-label="Delete exercise">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  }
+                />
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete exercise?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete &ldquo;{ex.name}&rdquo;.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleDeleteExercise(ex)}
+                      disabled={saving}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {saving ? "Deleting…" : "Delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className={cn("flex-1 overflow-y-auto py-4 space-y-4", selectable && "px-4")}>
           {ex.gif_url ? (
             <Image
               src={ex.gif_url}
@@ -377,7 +398,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
         </div>
         {/* Sticky select button — only in selectable mode */}
         {selectable && (
-          <div className="shrink-0 px-4 pt-3 pb-6 bg-background shadow-[0_-8px_16px_-4px_hsl(var(--background))]">
+          <div className="shrink-0 px-4 pt-3 pb-6 bg-background shadow-[0_-8px_16px_-4px_var(--background)]">
             <Button
               className="w-full"
               variant={isSelected ? "secondary" : "default"}
@@ -395,13 +416,13 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   if (view === "edit" && detailExercise) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
-          <Button variant="ghost" size="icon-sm" onClick={() => setView("detail")}>
+        <div className={cn("flex items-center gap-2 py-3 border-b shrink-0", selectable && "px-4")}>
+          <Button variant="ghost" size="icon-sm" aria-label="Back" onClick={() => setView("detail")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-medium text-sm">Edit Exercise</span>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
+        <div className={cn("flex-1 overflow-y-auto py-4 pb-safe", selectable && "px-4")}>
           <form onSubmit={handleUpdateExercise} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Name</Label>
@@ -460,13 +481,13 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
     return (
       <div className="flex flex-col h-full">
         {/* Sub-header */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
-          <Button variant="ghost" size="icon-sm" onClick={goBack}>
+        <div className={cn("flex items-center gap-2 py-3 border-b shrink-0", selectable && "px-4")}>
+          <Button variant="ghost" size="icon-sm" aria-label="Back" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-medium text-sm">New Exercise</span>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
+        <div className={cn("flex-1 overflow-y-auto py-4 pb-safe", selectable && "px-4")}>
           <form onSubmit={handleAddExercise} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="add-name">Name</Label>
@@ -533,7 +554,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
   return (
     <div className="flex flex-col h-full">
       {/* Search + add button */}
-      <div className="flex gap-2 px-4 pt-3 pb-2 shrink-0">
+      <div className={cn("flex gap-2 pt-3 pb-2 shrink-0", selectable && "px-4")}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -543,34 +564,42 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
             className="pl-9"
           />
         </div>
-        <Button variant="outline" size="icon" onClick={() => setView("add")}>
+        <Button variant="outline" size="icon" aria-label="Add exercise" onClick={() => setView("add")}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Muscle group filter */}
-      <div className="flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-hide shrink-0">
-        <Badge
-          variant={muscleFilter === "all" ? "default" : "outline"}
-          className="cursor-pointer shrink-0"
+      <div className={cn("flex gap-2 overflow-x-auto pb-2 scrollbar-hide shrink-0", selectable && "px-4")}>
+        <button
+          type="button"
+          aria-pressed={muscleFilter === "all"}
+          className={cn(
+            badgeVariants({ variant: muscleFilter === "all" ? "default" : "outline" }),
+            "cursor-pointer shrink-0"
+          )}
           onClick={() => setMuscleFilter("all")}
         >
           All
-        </Badge>
+        </button>
         {MUSCLE_GROUPS.map((m) => (
-          <Badge
+          <button
             key={m}
-            variant={muscleFilter === m ? "default" : "outline"}
-            className="cursor-pointer shrink-0"
+            type="button"
+            aria-pressed={muscleFilter === m}
+            className={cn(
+              badgeVariants({ variant: muscleFilter === m ? "default" : "outline" }),
+              "cursor-pointer shrink-0"
+            )}
             onClick={() => setMuscleFilter(m)}
           >
             {muscleLabel(m)}
-          </Badge>
+          </button>
         ))}
       </div>
 
       {/* Exercise list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-safe">
+      <div className={cn("flex-1 overflow-y-auto pb-safe", selectable && "px-4")}>
         {exercises.length === 0 && search.trim() === "" ? (
           <p className="text-muted-foreground text-sm text-center py-8">No exercises found.</p>
         ) : filtered.length === 0 ? (
@@ -602,7 +631,7 @@ export function ExerciseList({ exercises: initial, userId, onSelect, selectable 
 
       {/* Sticky confirm button — selectable mode only */}
       {selectable && selectedIds.size > 0 && (
-        <div className="shrink-0 px-4 pt-3 pb-6 bg-background shadow-[0_-8px_16px_-4px_hsl(var(--background))]">
+        <div className="shrink-0 px-4 pt-3 pb-6 bg-background shadow-[0_-8px_16px_-4px_var(--background)]">
           <Button className="w-full" onClick={confirmSelection}>
             Add {selectedIds.size} Exercise{selectedIds.size !== 1 ? "s" : ""}
           </Button>

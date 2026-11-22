@@ -38,7 +38,7 @@ export function ActiveWorkoutRestTimer({
           type="button"
           onClick={onTogglePause}
           className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+            "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
             urgent
               ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
               : "bg-primary/10 text-primary hover:bg-primary/20",
@@ -50,7 +50,7 @@ export function ActiveWorkoutRestTimer({
         <button
           type="button"
           onClick={onStop}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80"
           aria-label="Skip rest"
         >
           <SkipForward className="h-3.5 w-3.5" />

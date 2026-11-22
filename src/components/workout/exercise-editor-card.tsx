@@ -46,7 +46,7 @@ export function ExerciseEditorCard({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && "opacity-50 z-50")}
     >
-      <Card className={cn(allDone && "border-green-500/60 bg-green-500/5 dark:bg-green-500/10")}>
+      <Card className={cn(allDone && "border-primary/40 bg-primary/5 dark:bg-primary/10")}>
         <CardHeader className="pb-2">
           <div className="flex items-center gap-1">
             {/* Drag handle */}
@@ -88,7 +88,7 @@ export function ExerciseEditorCard({
               <CardTitle className="text-base truncate">{name}</CardTitle>
               {completedCount !== undefined && setsCount > 0 && (
                 allDone ? (
-                  <Badge className="text-xs shrink-0 bg-green-500 text-white border-0">
+                  <Badge className="text-xs shrink-0 bg-primary text-primary-foreground border-0">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Done
                   </Badge>
@@ -106,14 +106,21 @@ export function ExerciseEditorCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-9 w-9 sm:h-8 sm:w-8"
                   onClick={onUnlinkSuperset}
                   title="Remove from superset"
+                  aria-label="Unlink superset"
                 >
                   <Link2Off className="h-3.5 w-3.5 text-warning" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 sm:h-8 sm:w-8"
+                onClick={onRemove}
+                aria-label="Remove exercise"
+              >
                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </div>
@@ -154,7 +161,7 @@ export function SupersetLinkButton({
 const SUPERSET_COLORS = [
   { border: "border-warning",  badge: "bg-warning text-white" },
   { border: "border-blue-500", badge: "bg-blue-500 text-white" },
-  { border: "border-green-500",badge: "bg-green-500 text-white" },
+  { border: "border-primary", badge: "bg-primary text-primary-foreground" },
   { border: "border-violet-500",badge: "bg-violet-500 text-white" },
   { border: "border-rose-500", badge: "bg-rose-500 text-white" },
 ] as const;

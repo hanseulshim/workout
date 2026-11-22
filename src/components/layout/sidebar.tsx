@@ -45,7 +45,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="p-3 border-t shrink-0">
-        <LogoutButton />
+        <LogoutButton showLabel />
       </div>
     </aside>
   );

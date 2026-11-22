@@ -423,6 +423,19 @@ export function ActiveWorkoutScreen({ sessionId }: ActiveWorkoutScreenProps) {
     );
   }
 
+  function handleRemoveExercise(exerciseId: string) {
+    const removed = activeWorkout?.exercises.find((exercise) => exercise.exerciseId === exerciseId);
+    removeExercise(exerciseId);
+    if (removed) {
+      toast(`${removed.exerciseName} removed`, {
+        action: {
+          label: "Undo",
+          onClick: () => addExercise(removed),
+        },
+      });
+    }
+  }
+
   function handleSetUpdate(exerciseId: string, setId: string, updates: Partial<ActiveSet>) {
     setInvalidSetIds((prev) => {
       if (!prev.has(setId)) return prev;
@@ -578,7 +591,7 @@ export function ActiveWorkoutScreen({ sessionId }: ActiveWorkoutScreenProps) {
             onRemoveSet={removeSet}
             onUpdateSet={handleSetUpdate}
             onToggleComplete={handleToggleSetComplete}
-            onRemoveExercise={removeExercise}
+            onRemoveExercise={handleRemoveExercise}
             onSetRestTime={setExerciseRestTime}
             onStartRest={startRestTimer}
             onSetNotes={setExerciseNotes}

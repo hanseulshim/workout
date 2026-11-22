@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { RoutineBuilder } from "@/components/routines/routine-builder";
 export const metadata = { title: "Edit Routine | Workout" };
 
@@ -39,7 +43,12 @@ export default async function EditRoutinePage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Edit Routine</h1>
+      <div className="flex items-center gap-2">
+        <Link href={`/routines/${id}`} aria-label="Back to routine" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 shrink-0")}>
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
+        <h1 className="text-2xl font-bold">Edit Routine</h1>
+      </div>
       <RoutineBuilder exercises={exercises ?? []} userId={user.id} routine={normalizedRoutine} />
     </div>
   );

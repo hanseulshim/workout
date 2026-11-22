@@ -50,7 +50,7 @@ export function HevyImportPreview({
   return (
     <div className="space-y-4">
       {parseWarnings.length > 0 && (
-        <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-100">
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-medium">
@@ -64,8 +64,9 @@ export function HevyImportPreview({
             </div>
             <button
               type="button"
+              aria-label="Dismiss warnings"
               onClick={onDismissWarnings}
-              className="shrink-0 text-yellow-900/70 hover:text-yellow-900 dark:text-yellow-100/70 dark:hover:text-yellow-100"
+              className="shrink-0 text-warning/70 hover:text-warning"
             >
               <X className="h-4 w-4" />
             </button>

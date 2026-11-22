@@ -167,8 +167,8 @@ export function RoutineBuilder({ exercises, userId, routine }: Props) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Routine Name</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push Day" />
+        <Label htmlFor="routine-name">Routine Name</Label>
+        <Input id="routine-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Push Day" />
       </div>
       <div className="space-y-2">
         <Label>Schedule (optional)</Label>

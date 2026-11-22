@@ -6,7 +6,8 @@ import { Dumbbell, ClipboardList, History, TrendingUp, BookOpen, Settings, LogOu
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useWorkoutStore } from "@/store/workout-store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const navItems = [
   { href: "/", label: "Workout", icon: Dumbbell },
@@ -21,15 +22,28 @@ export function BottomNav() {
   const router = useRouter();
   const { endWorkout } = useWorkoutStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Escape") setMenuOpen(false);
-  }
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
 
   async function handleLogout() {
+    setLoggingOut(true);
     const supabase = createClient();
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Failed to sign out");
+      setLoggingOut(false);
+      return;
+    }
     endWorkout();
+    setMenuOpen(false);
     router.push("/auth/login");
     router.refresh();
   }
@@ -40,7 +54,6 @@ export function BottomNav() {
         <div
           className="fixed inset-0 z-40"
           onClick={() => setMenuOpen(false)}
-          onKeyDown={handleKeyDown}
           role="dialog"
           aria-modal="true"
           aria-label="More options menu"
@@ -58,11 +71,12 @@ export function BottomNav() {
               Import from Hevy
             </Link>
             <button
-              onClick={() => { setMenuOpen(false); handleLogout(); }}
-              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
             >
               <LogOut className="h-4 w-4" />
-              Sign out
+              {loggingOut ? "Signing out..." : "Sign out"}
             </button>
           </div>
         </div>
@@ -93,7 +107,9 @@ export function BottomNav() {
             aria-haspopup="dialog"
             className={cn(
               "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[52px]",
-              menuOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              menuOpen || pathname.startsWith("/import")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Settings className="h-5 w-5" />
